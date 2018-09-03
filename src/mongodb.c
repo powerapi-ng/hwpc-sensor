@@ -81,21 +81,24 @@ mongodb_ping(struct storage_module *module)
 }
 
 static int
-mongodb_store_report(struct storage_module *module, struct report_payload *payload)
+mongodb_store_report(struct storage_module *module, struct payload *payload)
 {
     struct mongodb_context *ctx = module->context;
     bson_t document = BSON_INITIALIZER;
-    struct hwinfo_pkg *pkg = NULL;
-    unsigned int *pkg_id;
     char uint_buf[32];
+    struct payload_group_data *group_data = NULL;
+    char *group_name = NULL;
+    bson_t doc_group;
+    struct payload_pkg_data *pkg_data = NULL;
+    unsigned int *pkg_id = NULL;
+    bson_t doc_pkg;
     const char *pkg_id_str = NULL;
+    struct payload_cpu_data *cpu_data = NULL;
     unsigned int *cpu_id = NULL;
     const char *cpu_id_str = NULL;
-    bson_t dochwc;
-    bson_t docpkg;
-    bson_t doccpu;
-    size_t event_id;
-    struct perf_cpu_report *report = NULL;
+    bson_t doc_cpu;
+    char *event_name = NULL;
+    uint64_t *event_value = NULL;
     bson_error_t error;
     int ret = 0;
 
@@ -105,7 +108,7 @@ mongodb_store_report(struct storage_module *module, struct report_payload *paylo
      *    "timestamp": 1529868713854,
      *    "sensor": "test.cluster.lan",
      *    "target": "example",
-     *    "hwc": {
+     *    "group_name": {
      *       "pkg_id": {
      *          "cpu_id": {
      *              "time_enabled": 12345,
@@ -117,47 +120,44 @@ mongodb_store_report(struct storage_module *module, struct report_payload *paylo
      *      },
      *      more pkgs...
      *    },
+     *    more groups...
      * }
      */
     BSON_APPEND_DATE_TIME(&document, "timestamp", payload->timestamp);
     BSON_APPEND_UTF8(&document, "sensor", ctx->config->sensor_name);
-    BSON_APPEND_UTF8(&document, "target", payload->cgroup_name);
-    BSON_APPEND_DOCUMENT_BEGIN(&document, "hwc", &dochwc);
-    for (pkg = zhashx_first(ctx->config->hwinfo->pkgs); pkg; pkg = zhashx_next(ctx->config->hwinfo->pkgs)) {
-        pkg_id = (unsigned int *) zhashx_cursor(ctx->config->hwinfo->pkgs);
-        bson_uint32_to_string(*pkg_id, &pkg_id_str, uint_buf, sizeof(uint_buf));
-        BSON_APPEND_DOCUMENT_BEGIN(&dochwc, pkg_id_str, &docpkg);
+    BSON_APPEND_UTF8(&document, "target", payload->target_name);
 
-        for (cpu_id = zlistx_first(pkg->cpus_id); cpu_id; cpu_id = zlistx_next(pkg->cpus_id)) {
-            report = zhashx_lookup(payload->reports, cpu_id);
-            if (!report) {
-                continue;
-            }
-            if (report->nr != payload->events->num_attrs) {
-                zsys_warning("mongodb: invalid event count for timestamp=%lu target=%s cpu=%lu", payload->timestamp, payload->cgroup_name, *cpu_id);
-                continue;
-            }
+    for (group_data = zhashx_first(payload->groups); group_data; group_data = zhashx_next(payload->groups)) {
+        group_name = (char *) zhashx_cursor(payload->groups);
+        BSON_APPEND_DOCUMENT_BEGIN(&document, group_name, &doc_group);
 
-            bson_uint32_to_string(*cpu_id, &cpu_id_str, uint_buf, sizeof(uint_buf));
-            BSON_APPEND_DOCUMENT_BEGIN(&docpkg, cpu_id_str, &doccpu);
+        for (pkg_data = zhashx_first(group_data->pkgs); pkg_data; pkg_data = zhashx_next(group_data->pkgs)) {
+            pkg_id = (unsigned int *) zhashx_cursor(group_data->pkgs);
+            bson_uint32_to_string(*pkg_id, &pkg_id_str, uint_buf, sizeof(uint_buf));
+            BSON_APPEND_DOCUMENT_BEGIN(&doc_group, pkg_id_str, &doc_pkg);
 
-            BSON_APPEND_INT64(&doccpu, "time_enabled", report->time_enabled);
-            BSON_APPEND_INT64(&doccpu, "time_running", report->time_running);
+            for (cpu_data = zhashx_first(pkg_data->cpus); cpu_data; cpu_data = zhashx_next(pkg_data->cpus)) {
+                cpu_id =  (unsigned int *) zhashx_cursor(pkg_data->cpus);
+                bson_uint32_to_string(*cpu_id, &cpu_id_str, uint_buf, sizeof(uint_buf));
+                BSON_APPEND_DOCUMENT_BEGIN(&doc_pkg, cpu_id_str, &doc_cpu);
 
-            for (event_id = 0; event_id < payload->events->num_attrs; event_id++) {
-                BSON_APPEND_DOUBLE(&doccpu, payload->events->attrs[event_id].name, report->values[event_id].value);
+                for (event_value = zhashx_first(cpu_data->events); event_value; event_value = zhashx_next(cpu_data->events)) {
+                    event_name = (char *) zhashx_cursor(cpu_data->events);
+                    BSON_APPEND_DOUBLE(&doc_cpu, event_name, *event_value);
+                }
+
+                bson_append_document_end(&doc_pkg, &doc_cpu);
             }
 
-            bson_append_document_end(&docpkg, &doccpu);
+            bson_append_document_end(&doc_group, &doc_pkg);
         }
 
-        bson_append_document_end(&dochwc, &docpkg);
+        bson_append_document_end(&document, &doc_group);
     }
-    bson_append_document_end(&document, &dochwc);
 
     /* insert document into collection */
     if (!mongoc_collection_insert_one(ctx->collection, &document, NULL, NULL, &error)) {
-        zsys_error("mongodb: failed insert timestamp=%lu target=%s: %s", payload->timestamp, payload->cgroup_name, error.message);
+        zsys_error("mongodb: failed insert timestamp=%lu target=%s: %s", payload->timestamp, payload->target_name, error.message);
         ret = -1;
     }
 
