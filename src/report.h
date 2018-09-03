@@ -26,25 +26,14 @@ struct report_context
 };
 
 /*
- * report_payload stores the required information for the storage module to handle events reports.
+ * report_config_create allocate the resource of a report configuration structure.
  */
-struct report_payload
-{
-    uint64_t timestamp;
-    char *cgroup_name;
-    struct events_config *events;
-    zhashx_t *reports; /* unsigned int *cpu_id -> struct perf_cpu_report *report */
-};
+struct report_config *report_config_create(struct storage_module *storage_module);
 
 /*
- * report_payload_create allocate and set the required resources of a report payload.
+ * report_config_destroy free the allocated resource of the report configuration structure.
  */
-struct report_payload *report_payload_create(uint64_t timestamp, char *cgroup_name, struct events_config *events);
-
-/*
- * report_payload_destroy free the allocated resources of the report payload.
- */
-void report_payload_destroy(struct report_payload *rpl);
+void report_config_destroy(struct report_config *config);
 
 /*
  * reporting_actor is the reporting actor entrypoint.
