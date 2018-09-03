@@ -22,6 +22,45 @@ usage()
             "\t\tMongoDB: -U MONGODB_URI -D MONGODB_DATABASE -C MONGODB_COLLECTION\n");
 }
 
+void
+sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events_groups, char *cgroup_basepath, zhashx_t *container_monitoring_actors)
+{
+    zhashx_t *cgroups_running = NULL;
+    zactor_t *perf_monitor = NULL;
+    const char *cgroup_path = NULL;
+    const char *cgroup_name = NULL;
+    struct perf_config *monitor_config = NULL;
+
+    /* to store running cgroups name and absolute path */
+    cgroups_running = zhashx_new();
+    zhashx_set_destructor(cgroups_running, (zhashx_destructor_fn *) zstr_free);
+
+    /* get running container(s) */
+    get_running_perf_event_cgroups(cgroup_basepath, cgroups_running);
+
+    /* stop monitoring dead container(s) */
+    for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
+        cgroup_name = zhashx_cursor(container_monitoring_actors);
+        if (!zhashx_lookup(cgroups_running, cgroup_name)) {
+            zsys_info("sensor: killing monitoring actor of %s", cgroup_name);
+            zhashx_delete(container_monitoring_actors, cgroup_name);
+        }
+    }
+
+    /* start monitoring new container(s) */
+    for (cgroup_path = zhashx_first(cgroups_running); cgroup_path; cgroup_path = zhashx_next(cgroups_running)) {
+        cgroup_name = zhashx_cursor(cgroups_running);
+        if (!zhashx_lookup(container_monitoring_actors, cgroup_name)) {
+            zsys_info("sensor: starting monitoring actor for %s (path=%s)", cgroup_name, cgroup_path);
+            monitor_config = perf_config_create(hwinfo, container_events_groups, cgroup_name, cgroup_path);
+            perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
+            zhashx_insert(container_monitoring_actors, cgroup_name, perf_monitor);
+        }
+    }
+
+    zhashx_destroy(&cgroups_running);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -47,10 +86,7 @@ main (int argc, char **argv)
     zactor_t *reporting = NULL;
     zhashx_t *cgroups_running = NULL; /* char *cgroup_name -> char *cgroup_absolute_path */
     zhashx_t *container_monitoring_actors = NULL; /* char *actor_name -> zactor_t *actor */
-    const char *cgroup_path = NULL;
-    const char *cgroup_name = NULL;
     zactor_t *system_perf_monitor = NULL;
-    zactor_t *perf_monitor = NULL;
     zsock_t *ticker = NULL;
     struct perf_config *monitor_config = NULL;
 
@@ -238,33 +274,11 @@ main (int argc, char **argv)
     /* monitor running containers */
     container_monitoring_actors = zhashx_new();
     zhashx_set_destructor(container_monitoring_actors, (zhashx_destructor_fn *) zactor_destroy);
-    cgroups_running = zhashx_new();
-    zhashx_set_destructor(cgroups_running, (zhashx_destructor_fn *) zstr_free);
     while (!zsys_interrupted) {
-        /* get running container(s) */
-        get_running_perf_event_cgroups(cgroup_basepath, cgroups_running);
-
-        /* stop monitoring dead container(s) */
-        for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
-            cgroup_name = zhashx_cursor(container_monitoring_actors);
-            if (!zhashx_lookup(cgroups_running, cgroup_name)) {
-                zsys_info("sensor: killing monitoring actor of %s", cgroup_name);
-                zhashx_delete(container_monitoring_actors, cgroup_name);
-            }
+        /* monitor containers only when needed */
+        if (zhashx_size(container_events_groups)) {
+            sync_cgroups_running_monitored(hwinfo, container_events_groups, cgroup_basepath, container_monitoring_actors);
         }
-
-        /* start monitoring new container(s) */
-        for (cgroup_path = zhashx_first(cgroups_running); cgroup_path; cgroup_path = zhashx_next(cgroups_running)) {
-            cgroup_name = zhashx_cursor(cgroups_running);
-            if (!zhashx_lookup(container_monitoring_actors, cgroup_name)) {
-                zsys_info("sensor: starting monitoring actor for %s (path=%s)", cgroup_name, cgroup_path);
-                monitor_config = perf_config_create(hwinfo, container_events_groups, cgroup_name, cgroup_path);
-                perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
-                zhashx_insert(container_monitoring_actors, cgroup_name, perf_monitor);
-            }
-        }
-
-        zhashx_purge(cgroups_running);
 
         /* send clock tick to monitoring actors */
         zsock_send(ticker, "s8", "CLOCK_TICK", zclock_time());
