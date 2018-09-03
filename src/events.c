@@ -65,3 +65,28 @@ events_config_add(struct events_config *events, char *event_name)
     return 0;
 }
 
+struct events_group *
+events_group_create(char *name)
+{
+    struct events_group *group = malloc(sizeof(struct events_group));
+
+    if (!group)
+        return NULL;
+
+    group->name = name;
+    group->events = events_config_create();
+    group->type = MONITOR_ALL_CPU_PER_SOCKET; /* by default, monitor all cpu of the available socket(s) */
+
+    return group;
+}
+
+void
+events_group_destroy(struct events_group *group)
+{
+    if (!group)
+        return;
+
+    events_config_destroy(group->events);
+    free(group);
+}
+
