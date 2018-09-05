@@ -46,68 +46,80 @@ hwinfo_pkg_destroy(struct hwinfo_pkg **pkg_ptr)
 }
 
 static int
-read_id_from_file(char *file_path)
+read_pkg_id_from_file(char *file_path, unsigned int *id)
 {
     FILE *f = NULL;
-    int id = -1;
+    int ret = -1;
 
     if ((f = fopen(file_path, "r")) != NULL) {
-        if (fscanf(f, "%d", &id) != 1) {
-            id = -1;
+        if (fscanf(f, "%u", id) == 1) {
+            ret = 0;
         }
     }
 
     fclose(f);
-    return id;
+    return ret;
+}
+
+static int
+parse_cpu_id_from_name(char *str, unsigned int *id)
+{
+    errno = 0;
+    sscanf(str, "cpu%u", id);
+    if (errno)
+        return -1;
+
+    return 0;
 }
 
 static int
 do_packages_detection(struct hwinfo *hwinfo)
 {
     int ret = -1;
-    char *sysfs_cpu_path = "/sys/devices/system/cpu";
+    char *sysfs_cpu_path = "/sys/bus/cpu/devices";
     DIR *dir = NULL;
     struct dirent *entry = NULL;
     char path_pkg_id[1024] = {0};
-    int cpu_id;
-    int package_id;
+    unsigned int cpu_id;
+    unsigned int pkg_id;
     struct hwinfo_pkg *pkg = NULL;
 
-    if ((dir = opendir(sysfs_cpu_path)) == NULL) {
+    dir = opendir(sysfs_cpu_path);
+    if (!dir) {
         zsys_error("hwinfo: failed to open sysfs cpu directory");
         return ret;
     }
 
-    for (entry = readdir(dir); entry; entry = readdir(dir), cpu_id = -1) {
-        /* only pick visible directories */
-        if ((entry->d_type & DT_DIR) && (entry->d_name[0] != '.')) {
+    /* extract information from online cpus */
+    for (entry = readdir(dir); entry; entry = readdir(dir)) {
+        if ((entry->d_type & DT_LNK) && (entry->d_name[0] != '.')) {
             /* extract cpu id from directory name */
-            sscanf(entry->d_name, "cpu%d", &cpu_id);
-            if (cpu_id >= 0) {
-                /* extract package id of the cpu */
-                snprintf(path_pkg_id, sizeof(path_pkg_id), "%s/%s/topology/physical_package_id", sysfs_cpu_path, entry->d_name);
-                package_id = read_id_from_file(path_pkg_id);
-                if (package_id >= 0) {
-                    /* get cpu pkg, create it if never encountered */
-                    pkg = zhashx_lookup(hwinfo->pkgs, &package_id);
-                    if (!pkg) {
-                        pkg = hwinfo_pkg_create();
-                        if (!pkg) {
-                            zsys_error("hwinfo: failed to allocate package info struct");
-                            goto cleanup;
-                        }
-
-                        /* store package info */
-                        zhashx_insert(hwinfo->pkgs, &package_id, pkg);
-                    }
-
-                    /* add cpu to its package */
-                    zlistx_add_end(pkg->cpus_id, &cpu_id);
-
-                    /* add cpu to available cpu list */
-                    zlistx_add_end(hwinfo->available_cpus_id, &cpu_id);
-                }
+            if (parse_cpu_id_from_name(entry->d_name, &cpu_id)) {
+                zsys_error("hwinfo: failed to parse cpu id of directory '%s'", entry->d_name);
+                goto cleanup;
             }
+
+            /* extract package id of the cpu */
+            snprintf(path_pkg_id, sizeof(path_pkg_id), "%s/%s/topology/physical_package_id", sysfs_cpu_path, entry->d_name);
+            if (read_pkg_id_from_file(path_pkg_id, &pkg_id)) {
+                zsys_error("hwinfo: failed to parse package id in '%s'", path_pkg_id);
+                goto cleanup;
+            }
+
+            /* get cpu pkg or create it if never encountered */
+            pkg = zhashx_lookup(hwinfo->pkgs, &pkg_id);
+            if (!pkg) {
+                pkg = hwinfo_pkg_create();
+                if (!pkg) {
+                    zsys_error("hwinfo: failed to allocate package info struct");
+                    goto cleanup;
+                }
+
+                zhashx_insert(hwinfo->pkgs, &pkg_id, pkg);
+            }
+
+            zlistx_add_end(pkg->cpus_id, &cpu_id);
+            zlistx_add_end(hwinfo->available_cpus_id, &cpu_id);
         }
     }
 
