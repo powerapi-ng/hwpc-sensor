@@ -87,6 +87,7 @@ perf_group_pkg_context_create()
 
     ctx->cpus_ctx = zhashx_new();
     zhashx_set_key_duplicator(ctx->cpus_ctx, (zhashx_duplicator_fn *) uintptrdup);
+    zhashx_set_key_comparator(ctx->cpus_ctx, (zhashx_comparator_fn *) uintptrcmp);
     zhashx_set_key_destructor(ctx->cpus_ctx, (zhashx_destructor_fn *) ptrfree);
     zhashx_set_destructor(ctx->cpus_ctx, (zhashx_destructor_fn *) perf_group_cpu_context_destroy);
 
@@ -115,6 +116,7 @@ perf_group_context_create(struct events_group *group)
     ctx->config = group;
     ctx->pkgs_ctx = zhashx_new();
     zhashx_set_key_duplicator(ctx->pkgs_ctx, (zhashx_duplicator_fn *) uintptrdup);
+    zhashx_set_key_comparator(ctx->pkgs_ctx, (zhashx_comparator_fn *) uintptrcmp);
     zhashx_set_key_destructor(ctx->pkgs_ctx, (zhashx_destructor_fn *) ptrfree);
     zhashx_set_destructor(ctx->pkgs_ctx, (zhashx_destructor_fn *) perf_group_pkg_context_destroy);
 
