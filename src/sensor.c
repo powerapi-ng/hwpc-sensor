@@ -128,7 +128,7 @@ main (int argc, char **argv)
     zhashx_set_destructor(system_events_groups, (zlistx_destructor_fn *) events_group_destroy);
 
     /* parse cli arguments */
-    while ((c = getopt(argc, argv, "vf:g:e:n:u:d:c:rp")) != -1) {
+    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:oU:D:C:")) != -1) {
         switch (c)
         {
             case 'v':
