@@ -409,9 +409,11 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
                 for (event_i = 0; event_i < group_ctx->config->events->num_attrs; event_i++) {
                     zhashx_insert(cpu_data->events, group_ctx->config->events->attrs[event_i].name, &perf_read_buffer->values[event_i].value);
                 }
+
+                zhashx_insert(pkg_data->cpus, cpu_id, cpu_data);
             }
 
-            zhashx_insert(pkg_data->cpus, cpu_id, cpu_data);
+            zhashx_insert(group_data->pkgs, pkg_id, pkg_data);
         }
 
         free(perf_read_buffer);
