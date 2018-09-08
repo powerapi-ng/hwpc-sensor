@@ -30,7 +30,7 @@ struct perf_group_cpu_context
  */
 struct perf_group_pkg_context
 {
-    zhashx_t *cpus_ctx; /* unsigned int *cpu_id -> struct perf_group_cpu_context *cpu_ctx */
+    zhashx_t *cpus_ctx; /* char *cpu_id -> struct perf_group_cpu_context *cpu_ctx */
 };
 
 /*
@@ -39,7 +39,7 @@ struct perf_group_pkg_context
 struct perf_group_context
 {
     struct events_group *config;
-    zhashx_t *pkgs_ctx; /* unsigned int *pkg_id -> struct perf_group_pkg_context *pkg_ctx */
+    zhashx_t *pkgs_ctx; /* char *pkg_id -> struct perf_group_pkg_context *pkg_ctx */
 };
 
 /*

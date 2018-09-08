@@ -64,7 +64,7 @@ perf_group_cpu_context_create()
     zlistx_set_destructor(ctx->perf_fds, (zlistx_destructor_fn *) perf_event_fd_destroy);
 
     return ctx;
-};
+}
 
 static void
 perf_group_cpu_context_destroy(struct perf_group_cpu_context **ctx)
@@ -86,9 +86,6 @@ perf_group_pkg_context_create()
         return NULL;
 
     ctx->cpus_ctx = zhashx_new();
-    zhashx_set_key_duplicator(ctx->cpus_ctx, (zhashx_duplicator_fn *) uintptrdup);
-    zhashx_set_key_comparator(ctx->cpus_ctx, (zhashx_comparator_fn *) uintptrcmp);
-    zhashx_set_key_destructor(ctx->cpus_ctx, (zhashx_destructor_fn *) ptrfree);
     zhashx_set_destructor(ctx->cpus_ctx, (zhashx_destructor_fn *) perf_group_cpu_context_destroy);
 
     return ctx;
@@ -115,9 +112,6 @@ perf_group_context_create(struct events_group *group)
 
     ctx->config = group;
     ctx->pkgs_ctx = zhashx_new();
-    zhashx_set_key_duplicator(ctx->pkgs_ctx, (zhashx_duplicator_fn *) uintptrdup);
-    zhashx_set_key_comparator(ctx->pkgs_ctx, (zhashx_comparator_fn *) uintptrcmp);
-    zhashx_set_key_destructor(ctx->pkgs_ctx, (zhashx_destructor_fn *) ptrfree);
     zhashx_set_destructor(ctx->pkgs_ctx, (zhashx_destructor_fn *) perf_group_pkg_context_destroy);
 
     return ctx;
@@ -170,17 +164,30 @@ perf_context_destroy(struct perf_context *ctx)
 }
 
 static int
-perf_events_group_setup_cpu(struct perf_context *ctx, struct perf_group_cpu_context *cpu_ctx, struct events_group *group, int perf_flags, unsigned int cpu_id)
+perf_events_group_setup_cpu(struct perf_context *ctx, struct perf_group_cpu_context *cpu_ctx, struct events_group *group, int perf_flags, const char *cpu_id)
 {
     size_t i;
     int group_fd = -1;
     int perf_fd;
+    char *cpu_id_endp = NULL;
+    long cpu;
+
+    errno = 0;
+    cpu = strtol(cpu_id, &cpu_id_endp, 0);
+    if (*cpu_id == '\0' || *cpu_id_endp != '\0' || errno) {
+        zsys_error("perf<%s>: failed convert cpu id for group=%s cpu=%s", ctx->config->cgroup_name, group->name, cpu_id);
+        return -1;
+    }
+    if (cpu > INT_MAX || cpu < INT_MIN) {
+        zsys_error("perf<%s>: cpu id is out of range for group=%s cpu=%s", ctx->config->cgroup_name, group->name, cpu_id);
+        return -1;
+    }
 
     for (i = 0; i < group->events->num_attrs; i++) {
         errno = 0;
-        perf_fd = perf_event_open(&group->events->attrs[i].perf_attr, ctx->cgroup_fd, cpu_id, group_fd, perf_flags);
+        perf_fd = perf_event_open(&group->events->attrs[i].perf_attr, ctx->cgroup_fd, (int) cpu, group_fd, perf_flags);
         if (perf_fd < 1) {
-            zsys_error("perf<%s>: failed opening perf event for group=%s cpu=%d event=%s errno=%d", ctx->config->cgroup_name, group->name, cpu_id, group->events->attrs[i].name, errno);
+            zsys_error("perf<%s>: failed opening perf event for group=%s cpu=%d event=%s errno=%d", ctx->config->cgroup_name, group->name, (int) cpu, group->events->attrs[i].name, errno);
             return -1;
         }
 
@@ -199,12 +206,12 @@ perf_events_groups_initialize(struct perf_context *ctx)
 {
     int perf_flags = 0;
     struct events_group *events_group = NULL;
-    char *events_group_name = NULL;
+    const char *events_group_name = NULL;
     struct perf_group_context *group_ctx = NULL;
     struct hwinfo_pkg *pkg = NULL;
-    unsigned int *pkg_id = NULL;
+    const char *pkg_id = NULL;
     struct perf_group_pkg_context *pkg_ctx = NULL;
-    unsigned int *cpu_id = NULL;
+    const char *cpu_id = NULL;
     struct perf_group_cpu_context *cpu_ctx = NULL;
 
     if (ctx->config->cgroup_path) {
@@ -218,7 +225,7 @@ perf_events_groups_initialize(struct perf_context *ctx)
     }
 
     for (events_group = zhashx_first(ctx->config->events_groups); events_group; events_group = zhashx_next(ctx->config->events_groups)) {
-        events_group_name = (char *) zhashx_cursor(ctx->config->events_groups);
+        events_group_name = zhashx_cursor(ctx->config->events_groups);
 
         /* create group context */
         group_ctx = perf_group_context_create(events_group);
@@ -228,12 +235,12 @@ perf_events_groups_initialize(struct perf_context *ctx)
         }
 
         for (pkg = zhashx_first(ctx->config->hwinfo->pkgs); pkg; pkg = zhashx_next(ctx->config->hwinfo->pkgs)) {
-            pkg_id = (unsigned int *) zhashx_cursor(ctx->config->hwinfo->pkgs);
+            pkg_id = zhashx_cursor(ctx->config->hwinfo->pkgs);
 
             /* create package context */
             pkg_ctx = perf_group_pkg_context_create();
             if (!pkg_ctx) {
-                zsys_error("perf<%s>: failed to create pkg context for group=%s pkg=%lu", ctx->config->cgroup_name, events_group_name, *pkg_id);
+                zsys_error("perf<%s>: failed to create pkg context for group=%s pkg=%s", ctx->config->cgroup_name, events_group_name, pkg_id);
                 return -1;
             }
 
@@ -241,12 +248,12 @@ perf_events_groups_initialize(struct perf_context *ctx)
                 /* create cpu context */
                 cpu_ctx = perf_group_cpu_context_create();
                 if (!cpu_ctx) {
-                    zsys_error("perf<%s>: failed to create cpu context for group=%s pkg=%d cpu=%d", ctx->config->cgroup_name, events_group_name, *pkg_id, *cpu_id);
+                    zsys_error("perf<%s>: failed to create cpu context for group=%s pkg=%s cpu=%s", ctx->config->cgroup_name, events_group_name, pkg_id, cpu_id);
                 }
 
                 /* open events of the group for the cpu */
-                if (perf_events_group_setup_cpu(ctx, cpu_ctx, events_group, perf_flags, *cpu_id)) {
-                    zsys_error("perf<%s>: failed to setup perf for group=%s pkg=%d cpu=%d", ctx->config->cgroup_name, events_group_name, *pkg_id, *cpu_id);
+                if (perf_events_group_setup_cpu(ctx, cpu_ctx, events_group, perf_flags, cpu_id)) {
+                    zsys_error("perf<%s>: failed to setup perf for group=%s pkg=%s cpu=%s", ctx->config->cgroup_name, events_group_name, pkg_id, cpu_id);
                     perf_group_cpu_context_destroy(&cpu_ctx);
                     return -1;
                 }
@@ -273,30 +280,34 @@ static void
 perf_events_groups_enable(struct perf_context *ctx)
 {
     struct perf_group_context *group_ctx = NULL;
-    char *group_name = NULL;
+    const char *group_name = NULL;
     struct perf_group_pkg_context *pkg_ctx = NULL;
-    unsigned int *pkg_id = NULL;
+    const char *pkg_id = NULL;
     struct perf_group_cpu_context *cpu_ctx = NULL;
-    unsigned int *cpu_id = NULL;
-    int *group_leader_fd = NULL;
+    const char *cpu_id = NULL;
+    const int *group_leader_fd = NULL;
 
     for (group_ctx = zhashx_first(ctx->groups_ctx); group_ctx; group_ctx = zhashx_next(ctx->groups_ctx)) {
-        group_name = (char *) zhashx_cursor(ctx->groups_ctx);
+        group_name = zhashx_cursor(ctx->groups_ctx);
 
         for (pkg_ctx = zhashx_first(group_ctx->pkgs_ctx); pkg_ctx; pkg_ctx = zhashx_next(group_ctx->pkgs_ctx)) {
-            pkg_id = (unsigned int *) zhashx_cursor(group_ctx->pkgs_ctx);
+            pkg_id = zhashx_cursor(group_ctx->pkgs_ctx);
 
             for (cpu_ctx = zhashx_first(pkg_ctx->cpus_ctx); cpu_ctx; cpu_ctx = zhashx_next(pkg_ctx->cpus_ctx)) {
-                cpu_id = (unsigned int *) zhashx_cursor(pkg_ctx->cpus_ctx);
+                cpu_id = zhashx_cursor(pkg_ctx->cpus_ctx);
                 group_leader_fd = zlistx_first(cpu_ctx->perf_fds);
+                if (!group_leader_fd) {
+                    zsys_error("perf<%s>: no group leader fd for group=%s pkg=%s cpu=%s", ctx->config->cgroup_name, group_name, pkg_id, cpu_id);
+                    continue;
+                }
 
                 errno = 0;
                 if (ioctl(*group_leader_fd, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP))
-                    zsys_error("perf<%s>: cannot reset events for group=%s pkg=%lu cpu=%lu errno=%d", ctx->config->cgroup_name, group_name, *pkg_id, *cpu_id, errno);
+                    zsys_error("perf<%s>: cannot reset events for group=%s pkg=%s cpu=%s errno=%d", ctx->config->cgroup_name, group_name, pkg_id, cpu_id, errno);
 
                 errno = 0;
                 if (ioctl(*group_leader_fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP))
-                    zsys_error("perf<%s>: cannot enable events for group=%s pkg=%lu cpu=%lu errno=%d", ctx->config->cgroup_name, group_name, *pkg_id, *cpu_id, errno);
+                    zsys_error("perf<%s>: cannot enable events for group=%s pkg=%s cpu=%s errno=%d", ctx->config->cgroup_name, group_name, pkg_id, cpu_id, errno);
             }
         }
     }
@@ -346,13 +357,13 @@ static int
 populate_payload(struct perf_context *ctx, struct payload *payload)
 {
     struct perf_group_context *group_ctx = NULL;
-    char *group_name = NULL;
+    const char *group_name = NULL;
     struct payload_group_data *group_data = NULL;
     struct perf_group_pkg_context *pkg_ctx = NULL;
-    unsigned int *pkg_id = NULL;
+    const char *pkg_id = NULL;
     struct payload_pkg_data *pkg_data = NULL;
     struct perf_group_cpu_context *cpu_ctx = NULL;
-    unsigned int *cpu_id = NULL;
+    const char *cpu_id = NULL;
     struct payload_cpu_data *cpu_data = NULL;
     size_t perf_read_buffer_size;
     struct perf_read_format *perf_read_buffer = NULL;
@@ -360,7 +371,7 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
     size_t event_i;
 
     for (group_ctx = zhashx_first(ctx->groups_ctx); group_ctx; group_ctx = zhashx_next(ctx->groups_ctx)) {
-        group_name = (char *) zhashx_cursor(ctx->groups_ctx);
+        group_name = zhashx_cursor(ctx->groups_ctx);
         group_data = payload_group_data_create();
         if (!group_data) {
             zsys_error("perf<%s>: failed to allocate group data for group=%s", ctx->config->cgroup_name, group_name);
@@ -376,31 +387,31 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
         }
 
         for (pkg_ctx = zhashx_first(group_ctx->pkgs_ctx); pkg_ctx; pkg_ctx = zhashx_next(group_ctx->pkgs_ctx)) {
-            pkg_id = (unsigned int *) zhashx_cursor(group_ctx->pkgs_ctx);
+            pkg_id = zhashx_cursor(group_ctx->pkgs_ctx);
             pkg_data = payload_pkg_data_create();
             if (!pkg_data) {
-                zsys_error("perf<%s>: failed to allocate pkg data for group=%s pkg=%lu", ctx->config->cgroup_name, group_name, *pkg_id);
+                zsys_error("perf<%s>: failed to allocate pkg data for group=%s pkg=%s", ctx->config->cgroup_name, group_name, pkg_id);
                 goto error;
             }
 
             for (cpu_ctx = zhashx_first(pkg_ctx->cpus_ctx); cpu_ctx; cpu_ctx = zhashx_next(pkg_ctx->cpus_ctx)) {
-                cpu_id = (unsigned int *) zhashx_cursor(pkg_ctx->cpus_ctx);
+                cpu_id = zhashx_cursor(pkg_ctx->cpus_ctx);
                 cpu_data = payload_cpu_data_create();
                 if (!cpu_data) {
-                    zsys_error("perf<%s>: failed to allocate cpu data for group=%s pkg=%lu cpu=%lu", ctx->config->cgroup_name, group_name, *pkg_id, *cpu_id);
+                    zsys_error("perf<%s>: failed to allocate cpu data for group=%s pkg=%s cpu=%s", ctx->config->cgroup_name, group_name, pkg_id, cpu_id);
                     goto error;
                 }
 
                 /* read counters value for the cpu */
                 if (perf_events_group_read_cpu(cpu_ctx, perf_read_buffer, perf_read_buffer_size)) {
-                    zsys_error("perf<%s>: cannot read perf values for group=%s pkg=%lu cpu=%lu", ctx->config->cgroup_name, group_name, *pkg_id, *cpu_id);
+                    zsys_error("perf<%s>: cannot read perf values for group=%s pkg=%s cpu=%s", ctx->config->cgroup_name, group_name, pkg_id, cpu_id);
                     goto error;
                 }
 
                 /* warn if PMU multiplexing is happening */
                 perf_multiplexing_ratio = compute_perf_multiplexing_ratio(perf_read_buffer);
                 if (perf_multiplexing_ratio < 1.0) {
-                    zsys_warning("perf<%s>: perf multiplexing for group=%s pkg=%lu cpu=%lu ratio=%ld", ctx->config->cgroup_name, group_name, *pkg_id, *cpu_id, perf_multiplexing_ratio);
+                    zsys_warning("perf<%s>: perf multiplexing for group=%s pkg=%s cpu=%s ratio=%ld", ctx->config->cgroup_name, group_name, pkg_id, cpu_id, perf_multiplexing_ratio);
                 }
 
                 /* store events value */

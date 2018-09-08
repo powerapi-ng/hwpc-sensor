@@ -85,19 +85,16 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
 {
     struct mongodb_context *ctx = module->context;
     bson_t document = BSON_INITIALIZER;
-    char uint_buf[32];
     struct payload_group_data *group_data = NULL;
-    char *group_name = NULL;
+    const char *group_name = NULL;
     bson_t doc_group;
     struct payload_pkg_data *pkg_data = NULL;
-    unsigned int *pkg_id = NULL;
+    const char *pkg_id = NULL;
     bson_t doc_pkg;
-    const char *pkg_id_str = NULL;
     struct payload_cpu_data *cpu_data = NULL;
-    unsigned int *cpu_id = NULL;
-    const char *cpu_id_str = NULL;
+    const char *cpu_id = NULL;
     bson_t doc_cpu;
-    char *event_name = NULL;
+    const char *event_name = NULL;
     uint64_t *event_value = NULL;
     bson_error_t error;
     int ret = 0;
@@ -128,21 +125,19 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
     BSON_APPEND_UTF8(&document, "target", payload->target_name);
 
     for (group_data = zhashx_first(payload->groups); group_data; group_data = zhashx_next(payload->groups)) {
-        group_name = (char *) zhashx_cursor(payload->groups);
+        group_name = zhashx_cursor(payload->groups);
         BSON_APPEND_DOCUMENT_BEGIN(&document, group_name, &doc_group);
 
         for (pkg_data = zhashx_first(group_data->pkgs); pkg_data; pkg_data = zhashx_next(group_data->pkgs)) {
-            pkg_id = (unsigned int *) zhashx_cursor(group_data->pkgs);
-            bson_uint32_to_string(*pkg_id, &pkg_id_str, uint_buf, sizeof(uint_buf));
-            BSON_APPEND_DOCUMENT_BEGIN(&doc_group, pkg_id_str, &doc_pkg);
+            pkg_id = zhashx_cursor(group_data->pkgs);
+            BSON_APPEND_DOCUMENT_BEGIN(&doc_group, pkg_id, &doc_pkg);
 
             for (cpu_data = zhashx_first(pkg_data->cpus); cpu_data; cpu_data = zhashx_next(pkg_data->cpus)) {
-                cpu_id =  (unsigned int *) zhashx_cursor(pkg_data->cpus);
-                bson_uint32_to_string(*cpu_id, &cpu_id_str, uint_buf, sizeof(uint_buf));
-                BSON_APPEND_DOCUMENT_BEGIN(&doc_pkg, cpu_id_str, &doc_cpu);
+                cpu_id = zhashx_cursor(pkg_data->cpus);
+                BSON_APPEND_DOCUMENT_BEGIN(&doc_pkg, cpu_id, &doc_cpu);
 
                 for (event_value = zhashx_first(cpu_data->events); event_value; event_value = zhashx_next(cpu_data->events)) {
-                    event_name = (char *) zhashx_cursor(cpu_data->events);
+                    event_name = zhashx_cursor(cpu_data->events);
                     BSON_APPEND_DOUBLE(&doc_cpu, event_name, *event_value);
                 }
 
