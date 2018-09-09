@@ -1,40 +1,71 @@
 #ifndef EVENTS_H
 #define EVENTS_H
 
+#include <czmq.h>
 #include <perfmon/pfmlib_perf_event.h>
 
 /*
- * event_attr stores information about the perf event.
+ * events_group_monitoring_type stores the possible monitoring type of an events group.
  */
-struct event_attr
+enum events_group_monitoring_type
+{
+    MONITOR_ALL_CPU_PER_SOCKET,
+    MONITOR_ONE_CPU_PER_SOCKET
+};
+
+/*
+ * event_config is the event configuration container.
+ */
+struct event_config
 {
     char *name;
-    struct perf_event_attr perf_attr;
+    struct perf_event_attr attr;
 };
 
 /*
- * events_config is the events attributes container.
+ * events_group is the events group container.
  */
-struct events_config
+struct events_group
 {
-    size_t num_attrs;
-    struct event_attr *attrs;
+    char *name;
+    enum events_group_monitoring_type type;
+    zlistx_t *events; /* struct event_config *event */
 };
 
 /*
- * events_config_create allocated the required resources for the events config container.
+ * event_config_create allocate the required resources for the event config container.
  */
-struct events_config *events_config_create();
+struct event_config *event_config_create(char *event_name);
 
 /*
- * events_config_destroy free the allocated resources of the events config container.
+ * event_config_dup duplicate the given event config container.
  */
-void events_config_destroy(struct events_config *events);
+struct event_config *event_config_dup(struct event_config *config);
 
 /*
- * events_config_add get the event configuration from its name (if the event is available) and store it into the container.
+ * event_config_destroy free the allocated resources of the event config container.
  */
-int events_config_add(struct events_config *events, char *event_name);
+void event_config_destroy(struct event_config *config);
+
+/*
+ * events_group_create allocate the required resources for the events group container.
+ */
+struct events_group *events_group_create(char *name);
+
+/*
+ * events_group_dup duplicate the given events group container.
+ */
+struct events_group *events_group_dup(struct events_group *group);
+
+/*
+ * events_group_append_event get the event attributes from its name (if available) and store it into the events group container.
+ */
+int events_group_append_event(struct events_group *group, char *event_name);
+
+/*
+ * events_group_destroy free the allocated resources of the events group container.
+ */
+void events_group_destroy(struct events_group **group);
 
 #endif /* EVENTS_H */
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <regex.h>
 
 #include "hwinfo.h"
 #include "util.h"
@@ -13,7 +14,7 @@ hwinfo_pkg_create()
         return NULL;
 
     pkg->cpus_id = zlistx_new();
-    zlistx_set_duplicator(pkg->cpus_id, (zlistx_duplicator_fn *) uintptrdup);
+    zlistx_set_duplicator(pkg->cpus_id, (zlistx_duplicator_fn *) strdup);
     zlistx_set_destructor(pkg->cpus_id, (zlistx_destructor_fn *) ptrfree);
 
     return pkg;
@@ -35,29 +36,57 @@ hwinfo_pkg_dup(struct hwinfo_pkg *pkg)
 static void
 hwinfo_pkg_destroy(struct hwinfo_pkg **pkg_ptr)
 {
-    struct hwinfo_pkg *pkg = *pkg_ptr;
-
-    if (!pkg)
+    if (!*pkg_ptr)
         return;
 
-    zlistx_destroy(&pkg->cpus_id);
-    free(pkg);
+    zlistx_destroy(&(*pkg_ptr)->cpus_id);
+    free(*pkg_ptr);
     *pkg_ptr = NULL;
 }
 
-static int
-read_id_from_file(char *file_path)
+static char *
+read_pkg_id_from_file(char *file_path)
 {
     FILE *f = NULL;
-    int id = -1;
+    char buffer[24]; /* log10(ULLONG_MAX) */
+    regex_t re = {0};
+    const char *expr = "^([0-9]+)$";
+    const size_t num_matches = 2; /* num groups + 1 */
+    regmatch_t matches[num_matches];
+    char *id = NULL;
 
-    if ((f = fopen(file_path, "r")) != NULL) {
-        if (fscanf(f, "%d", &id) != 1) {
-            id = -1;
+    f = fopen(file_path, "r");
+    if (f) {
+        if (fgets(buffer, sizeof(buffer), f)) {
+            if (!regcomp(&re, expr, REG_EXTENDED | REG_NEWLINE)) {
+                if (!regexec(&re, buffer, num_matches, matches, 0)) {
+                    id = strndup(buffer + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
+                }
+                regfree(&re);
+            }
         }
+        fclose(f);
     }
 
-    fclose(f);
+    return id;
+}
+
+static char *
+parse_cpu_id_from_name(char *str)
+{
+    regex_t re = {0};
+    const char *expr = "^cpu([0-9]+)$";
+    const size_t num_matches = 2; /* num groups + 1 */
+    regmatch_t matches[num_matches];
+    char *id = NULL;
+
+    if (!regcomp(&re, expr, REG_EXTENDED)) {
+        if (!regexec(&re, str, num_matches, matches, 0)) {
+            id = strndup(str + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
+        }
+        regfree(&re);
+    }
+
     return id;
 }
 
@@ -65,58 +94,66 @@ static int
 do_packages_detection(struct hwinfo *hwinfo)
 {
     int ret = -1;
-    char *sysfs_cpu_path = "/sys/devices/system/cpu";
+    char *sysfs_cpu_path = "/sys/bus/cpu/devices";
     DIR *dir = NULL;
     struct dirent *entry = NULL;
     char path_pkg_id[1024] = {0};
-    int cpu_id;
-    int package_id;
+    char *cpu_id = NULL;
+    char *pkg_id = NULL;
     struct hwinfo_pkg *pkg = NULL;
 
-    if ((dir = opendir(sysfs_cpu_path)) == NULL) {
+    dir = opendir(sysfs_cpu_path);
+    if (!dir) {
         zsys_error("hwinfo: failed to open sysfs cpu directory");
         return ret;
     }
 
-    for (entry = readdir(dir); entry; entry = readdir(dir), cpu_id = -1) {
-        /* only pick visible directories */
-        if ((entry->d_type & DT_DIR) && (entry->d_name[0] != '.')) {
+    /* extract information from online cpus */
+    for (entry = readdir(dir); entry; entry = readdir(dir)) {
+        if ((entry->d_type & DT_LNK) && (entry->d_name[0] != '.')) {
             /* extract cpu id from directory name */
-            sscanf(entry->d_name, "cpu%d", &cpu_id);
-            if (cpu_id >= 0) {
-                /* extract package id of the cpu */
-                snprintf(path_pkg_id, sizeof(path_pkg_id), "%s/%s/topology/physical_package_id", sysfs_cpu_path, entry->d_name);
-                package_id = read_id_from_file(path_pkg_id);
-                if (package_id >= 0) {
-                    /* get cpu pkg, create it if never encountered */
-                    pkg = zhashx_lookup(hwinfo->pkgs, &package_id);
-                    if (!pkg) {
-                        pkg = hwinfo_pkg_create();
-                        if (!pkg) {
-                            zsys_error("hwinfo: failed to allocate package info struct");
-                            goto cleanup;
-                        }
-
-                        /* store package info */
-                        zhashx_insert(hwinfo->pkgs, &package_id, pkg);
-                    }
-
-                    /* add cpu to its package */
-                    zlistx_add_end(pkg->cpus_id, &cpu_id);
-
-                    /* add cpu to available cpu list */
-                    zlistx_add_end(hwinfo->available_cpus_id, &cpu_id);
-                }
+            cpu_id = parse_cpu_id_from_name(entry->d_name);
+            if (!cpu_id) {
+                zsys_error("hwinfo: failed to parse cpu id of directory '%s'", entry->d_name);
+                goto cleanup;
             }
+
+            /* extract package id of the cpu */
+            snprintf(path_pkg_id, sizeof(path_pkg_id), "%s/%s/topology/physical_package_id", sysfs_cpu_path, entry->d_name);
+            pkg_id = read_pkg_id_from_file(path_pkg_id);
+            if (!pkg_id) {
+                zsys_error("hwinfo: failed to parse package id in '%s'", path_pkg_id);
+                goto cleanup;
+            }
+
+            /* get cpu pkg or create it if never encountered */
+            pkg = zhashx_lookup(hwinfo->pkgs, pkg_id);
+            if (!pkg) {
+                pkg = hwinfo_pkg_create();
+                if (!pkg) {
+                    zsys_error("hwinfo: failed to allocate package info struct");
+                    goto cleanup;
+                }
+
+                zhashx_insert(hwinfo->pkgs, pkg_id, pkg);
+                hwinfo_pkg_destroy(&pkg);
+                pkg = zhashx_lookup(hwinfo->pkgs, pkg_id); /* get the copy the pkg done by zhashx_insert */
+            }
+
+            zlistx_add_end(pkg->cpus_id, cpu_id);
+
+            free(cpu_id);
+            cpu_id = NULL;
+            free(pkg_id);
+            pkg_id = NULL;
         }
     }
-
-    /* set a duplicator to the hash table */
-    zhashx_set_duplicator(hwinfo->pkgs, (zhashx_duplicator_fn *) hwinfo_pkg_dup);
 
     ret = 0;
 
 cleanup:
+    free(cpu_id);
+    free(pkg_id);
     closedir(dir);
     return ret;
 }
@@ -139,14 +176,8 @@ hwinfo_create()
     if (!hw)
         return NULL;
 
-    hw->available_cpus_id = zlistx_new();
-    zlistx_set_duplicator(hw->available_cpus_id, (zlistx_duplicator_fn *) uintptrdup);
-    zlistx_set_destructor(hw->available_cpus_id, (zlistx_destructor_fn *) ptrfree);
-
     hw->pkgs = zhashx_new();
-    zhashx_set_key_duplicator(hw->pkgs, (zhashx_duplicator_fn *) uintptrdup);
-    zhashx_set_key_comparator(hw->pkgs, (zhashx_comparator_fn *) uintptrcmp);
-    zhashx_set_key_destructor(hw->pkgs, (zhashx_destructor_fn *) ptrfree);
+    zhashx_set_duplicator(hw->pkgs, (zhashx_duplicator_fn *) hwinfo_pkg_dup);
     zhashx_set_destructor(hw->pkgs, (zlistx_destructor_fn *) hwinfo_pkg_destroy);
 
     return hw;
@@ -160,7 +191,6 @@ hwinfo_dup(struct hwinfo *hwinfo)
     if (!hwinfocpy)
         return NULL;
 
-    hwinfocpy->available_cpus_id = zlistx_dup(hwinfo->available_cpus_id);
     hwinfocpy->pkgs = zhashx_dup(hwinfo->pkgs);
 
     return hwinfocpy;
@@ -172,7 +202,6 @@ hwinfo_destroy(struct hwinfo *hwinfo)
     if (!hwinfo)
         return;
 
-    zlistx_destroy(&hwinfo->available_cpus_id);
     zhashx_destroy(&hwinfo->pkgs);
     free(hwinfo);
 }

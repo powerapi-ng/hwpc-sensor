@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(smartwatts-sensor LANGUAGES C)
 
-# global compiler/linker flags:
+# Compiler/linker flags:
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Werror")
@@ -23,6 +23,7 @@ add_executable(smartwatts-sensor
     src/events.h src/events.c
     src/hwinfo.h src/hwinfo.c
     src/cgroups.h src/cgroups.c
+    src/payload.h src/payload.c
     src/report.h src/report.c
     src/perf.h src/perf.c
     src/storage.h src/storage.c

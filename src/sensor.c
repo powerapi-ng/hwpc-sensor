@@ -16,8 +16,49 @@
 void
 usage()
 {
-    fprintf(stderr, "usage: smartwatts-sensor [-v] [-r] [-p] [-f FREQUENCY] [-g CGROUP_PATH] -e EVENT -n SENSOR_NAME\n"
-            "\t-u MONGODB_URI -d MONGODB_DATABASE -c MONGODB_COLLECTION\n");
+    fprintf(stderr, "usage: smartwatts-sensor [-v] [-f FREQUENCY] [-p CGROUP_PATH] -n SENSOR_NAME\n"
+            "\t-c | -s EVENT_GROUP_NAME [-o] -e EVENT_NAME\n"
+            "\t[-r mongodb]\n"
+            "\t\tMongoDB: -U MONGODB_URI -D MONGODB_DATABASE -C MONGODB_COLLECTION\n");
+}
+
+void
+sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events_groups, char *cgroup_basepath, zhashx_t *container_monitoring_actors)
+{
+    zhashx_t *cgroups_running = NULL;
+    zactor_t *perf_monitor = NULL;
+    const char *cgroup_path = NULL;
+    const char *cgroup_name = NULL;
+    struct perf_config *monitor_config = NULL;
+
+    /* to store running cgroups name and absolute path */
+    cgroups_running = zhashx_new();
+    zhashx_set_destructor(cgroups_running, (zhashx_destructor_fn *) zstr_free);
+
+    /* get running container(s) */
+    get_running_perf_event_cgroups(cgroup_basepath, cgroups_running);
+
+    /* stop monitoring dead container(s) */
+    for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
+        cgroup_name = zhashx_cursor(container_monitoring_actors);
+        if (!zhashx_lookup(cgroups_running, cgroup_name)) {
+            zsys_info("sensor: killing monitoring actor of %s", cgroup_name);
+            zhashx_delete(container_monitoring_actors, cgroup_name);
+        }
+    }
+
+    /* start monitoring new container(s) */
+    for (cgroup_path = zhashx_first(cgroups_running); cgroup_path; cgroup_path = zhashx_next(cgroups_running)) {
+        cgroup_name = zhashx_cursor(cgroups_running);
+        if (!zhashx_lookup(container_monitoring_actors, cgroup_name)) {
+            zsys_info("sensor: starting monitoring actor for %s (path=%s)", cgroup_name, cgroup_path);
+            monitor_config = perf_config_create(hwinfo, container_events_groups, cgroup_name, cgroup_path);
+            perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
+            zhashx_insert(container_monitoring_actors, cgroup_name, perf_monitor);
+        }
+    }
+
+    zhashx_destroy(&cgroups_running);
 }
 
 int
@@ -27,97 +68,31 @@ main (int argc, char **argv)
     int c;
     size_t i;
     int verbose = 0;
-    int frequency = 1000; /* in milliseconds */
+    char *frequency_endp = NULL;
+    long frequency = 1000; /* in milliseconds */
     struct pmu_topology *sys_pmu_topology = NULL;
     char *cgroup_basepath = "/docker";
-    char *rapl_events_name[] = {"RAPL_ENERGY_CORES", "RAPL_ENERGY_PKG", "RAPL_ENERGY_DRAM"};
-    size_t num_rapl_events = sizeof(rapl_events_name) / sizeof(rapl_events_name[0]);
-    int flag_rapl_events = 0;
-    char *pcu_events_name[] = {"UNC_P_POWER_STATE_OCCUPANCY:CORES_C0", "UNC_P_POWER_STATE_OCCUPANCY:CORES_C3", "UNC_P_POWER_STATE_OCCUPANCY:CORES_C6"};
-    size_t num_pcu_events = sizeof(pcu_events_name) / sizeof(pcu_events_name[0]);
-    int flag_pcu_events = 0;
-    char **user_events_name = NULL;
-    size_t num_user_events = 0;
+    zhashx_t *system_events_groups = NULL; /* char *group_name -> struct events_group *group */
+    zhashx_t *container_events_groups = NULL; /* char *group_name -> struct events_group *group */
+    struct events_group *current_events_group = NULL;
     char *sensor_name = NULL;
     char *mongodb_uri = NULL;
     char *mongodb_database = NULL;
     char *mongodb_collection = NULL;
-    struct events_config *rapl_events_config = NULL;
-    struct events_config *pcu_events_config = NULL;
-    struct events_config *user_events_config = NULL;
     struct hwinfo *hwinfo = NULL;
     struct mongodb_config mongodb_conf = {0};
     struct storage_module *storage_module = NULL;
     struct report_config reporting_conf = {0};
     zactor_t *reporting = NULL;
-    zhashx_t *cgroups_running = NULL;
-    zhashx_t *monitoring_actors = NULL;
-    const char *cgroup_path = NULL;
-    const char *cgroup_name = NULL;
-    zactor_t *perf_monitor = NULL;
+    zhashx_t *cgroups_running = NULL; /* char *cgroup_name -> char *cgroup_absolute_path */
+    zhashx_t *container_monitoring_actors = NULL; /* char *actor_name -> zactor_t *actor */
+    zactor_t *system_perf_monitor = NULL;
     zsock_t *ticker = NULL;
     struct perf_config *monitor_config = NULL;
 
     if (!zsys_init()) {
         fprintf(stderr, "czmq: failed to initialize zsys context\n");
         return ret;
-    }
-
-    /* parse cli arguments */
-    while ((c = getopt(argc, argv, "vf:g:e:n:u:d:c:rp")) != -1) {
-        switch (c)
-        {
-            case 'v':
-                verbose++;
-                break;
-            case 'f':
-                frequency = atoi(optarg);
-                break;
-            case 'g':
-                cgroup_basepath = optarg;
-                break;
-            case 'e':
-                user_events_name = realloc(user_events_name, (num_user_events + 1) * sizeof(char* ));
-                user_events_name[num_user_events++] = optarg;
-                break;
-            case 'n':
-                sensor_name = optarg;
-                break;
-            case 'u':
-                mongodb_uri = optarg;
-                break;
-            case 'd':
-                mongodb_database = optarg;
-                break;
-            case 'c':
-                mongodb_collection = optarg;
-                break;
-            case 'r':
-                flag_rapl_events = 1;
-                break;
-            case 'p':
-                flag_pcu_events = 1;
-                break;
-            default:
-                usage();
-                goto cleanup;
-        }
-    }
-
-    /* check program configuration */
-    if (frequency <= 0) {
-        zsys_error("args: the measurement frequency must be > 0");
-        goto cleanup;
-    }
-
-    if (num_user_events == 0) {
-        zsys_error("args: you must provide event(s) to monitor");
-        goto cleanup;
-    }
-
-    if (!mongodb_uri || !mongodb_database || !mongodb_collection) {
-        zsys_error("args: you must provide a mongodb configuration");
-        goto cleanup;
     }
 
     /* check if run as root */
@@ -132,12 +107,122 @@ main (int argc, char **argv)
         goto cleanup;
     }
 
-    /* initialize the PMU module */
-    if (pmu_initialize()) {
-        zsys_error("events: cannot initialize the events module");
+    /* initialize the cgroups module */
+    if (initialize_cgroups()) {
+        zsys_error("cgroups: cannot initialize the cgroup module");
         goto cleanup;
     }
 
+    /* initialize the PMU module */
+    if (pmu_initialize()) {
+        zsys_error("pmu: cannot initialize the pmu module");
+        goto cleanup;
+    }
+
+    /* stores events to monitor globally (system) */
+    system_events_groups = zhashx_new();
+    zhashx_set_duplicator(system_events_groups, (zhashx_duplicator_fn *) events_group_dup);
+    zhashx_set_destructor(system_events_groups, (zhashx_destructor_fn *) events_group_destroy);
+
+    /* stores events to monitor per-container */
+    container_events_groups = zhashx_new();
+    zhashx_set_duplicator(container_events_groups, (zhashx_duplicator_fn *) events_group_dup);
+    zhashx_set_destructor(container_events_groups, (zhashx_destructor_fn *) events_group_destroy);
+
+    /* parse cli arguments */
+    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:oU:D:C:")) != -1) {
+        switch (c)
+        {
+            case 'v':
+                verbose++;
+                break;
+            case 'f':
+                errno = 0;
+                frequency = strtol(optarg, &frequency_endp, 0);
+                if (*optarg == '\0' || *frequency_endp != '\0' || errno) {
+                    zsys_error("args: the given frequency is invalid");
+                    goto cleanup;
+                }
+                if (frequency < INT_MIN || frequency > INT_MAX) {
+                    zsys_error("args: the given frequency is out of range");
+                    goto cleanup;
+                }
+                break;
+            case 'p':
+                cgroup_basepath = optarg;
+                break;
+            case 'n':
+                sensor_name = optarg;
+                break;
+            case 's':
+                current_events_group = events_group_create(optarg);
+                if (!current_events_group) {
+                    zsys_error("sensor: failed to create the '%s' system group", optarg);
+                    goto cleanup;
+                }
+                zhashx_insert(system_events_groups, optarg, current_events_group);
+                events_group_destroy(&current_events_group);
+                current_events_group = zhashx_lookup(system_events_groups, optarg); /* get the duplicated events group */
+                break;
+            case 'c':
+                current_events_group = events_group_create(optarg);
+                if (current_events_group) {
+                    zsys_error("sensor: failed to create the '%s' container group", optarg);
+                    goto cleanup;
+                }
+                zhashx_insert(container_events_groups, optarg, current_events_group);
+                events_group_destroy(&current_events_group);
+                current_events_group = zhashx_lookup(container_events_groups, optarg); /* get the duplicated events group */
+                break;
+            case 'e':
+                if (!current_events_group) {
+                    zsys_error("args: you cannot add events to an inexisting events group");
+                    goto cleanup;
+                }
+                if (events_group_append_event(current_events_group, optarg)) {
+                    zsys_error("args: the event '%s' is invalid or unsupported by this machine", optarg);
+                    goto cleanup;
+                }
+                break;
+            case 'o':
+                if (!current_events_group) {
+                    zsys_error("events: you cannot set the type of an inexisting events group");
+                    goto cleanup;
+                }
+                current_events_group->type = MONITOR_ONE_CPU_PER_SOCKET;
+                break;
+            case 'U':
+                mongodb_uri = optarg;
+                break;
+            case 'D':
+                mongodb_database = optarg;
+                break;
+            case 'C':
+                mongodb_collection = optarg;
+                break;
+            default:
+                usage();
+                goto cleanup;
+        }
+    }
+
+    /* check program configuration */
+    if (frequency <= 0) {
+        zsys_error("args: the measurement frequency must be > 0");
+        goto cleanup;
+    }
+
+    if (zhashx_size(system_events_groups) == 0 && zhashx_size(container_events_groups) == 0) {
+        zsys_error("args: you must provide event(s) to monitor");
+        goto cleanup;
+    }
+
+    if (!mongodb_uri || !mongodb_database || !mongodb_collection) {
+        zsys_error("args: you must provide a mongodb configuration");
+        goto cleanup;
+    }
+
+    /* detect pmu topology */
     sys_pmu_topology = pmu_topology_create();
     if (!sys_pmu_topology) {
         zsys_error("pmu: cannot allocate pmu topology memory");
@@ -157,74 +242,16 @@ main (int argc, char **argv)
                 sys_pmu_topology->pmus[i].num_fixed_cntrs);
     }
 
-    /* get rapl events perf configuration */
-    if (flag_rapl_events) {
-        rapl_events_config = events_config_create();
-        if (!rapl_events_config) {
-            zsys_error("events: cannot allocate memory for rapl events config");
-            goto cleanup;
-        }
-
-        for (i = 0; i < num_rapl_events; i++) {
-            if (events_config_add(rapl_events_config, rapl_events_name[i])) {
-                zsys_error("events: the rapl event '%s' is not supported by this machine", rapl_events_name[i]);
-                /* errors are not fatal, some RAPL domains may be unsupported */
-            }
-        }
-
-        /* if there is no RAPL domain(s) supported, this is a fatal error */
-        if (!rapl_events_config->num_attrs) {
-            zsys_error("events: RAPL is not supported by this machine");
-            goto cleanup;
-        }
-    }
-
-    /* get PCU events perf configuration */
-    if (flag_pcu_events) {
-        pcu_events_config = events_config_create();
-        if (!pcu_events_config) {
-            zsys_error("events: cannot allocate memory for PCU events config");
-            goto cleanup;
-        }
-
-        for (i = 0; i < num_pcu_events; i++) {
-            if (events_config_add(pcu_events_config, pcu_events_name[i])) {
-                zsys_error("events: the pcu event '%s' is not supported by this machine", pcu_events_name[i]);
-                /* errors are not fatal, some PCU events may be unsupported */
-            }
-        }
-
-        /* if there is no PCU events supported, this is a fatal error */
-        if (!pcu_events_config->num_attrs) {
-            zsys_error("events: no PCU events supported by this machine");
-            goto cleanup;
-        }
-    }
-
-    /* get user events perf configuration */
-    user_events_config = events_config_create();
-    if (!user_events_config) {
-        zsys_error("events: cannot allocate memory for user events config");
-        goto cleanup;
-    }
-
-    for (i = 0; i < num_user_events; i++) {
-        if (events_config_add(user_events_config, user_events_name[i])) {
-            zsys_error("events: the user event '%s' is invalid or unsupported by this machine", user_events_name[i]);
-            goto cleanup;
-        }
-    }
-
     /* detect machine hardware */
     hwinfo = hwinfo_create();
-    if (!hwinfo || hwinfo_detect(hwinfo)) {
+    if (!hwinfo) {
+        zsys_error("hwinfo: error while creating hardware information container");
+        goto cleanup;
+    }
+    if (hwinfo_detect(hwinfo)) {
         zsys_error("hwinfo: error while detecting hardware information");
         goto cleanup;
     }
-
-    /* print configuration */
-    zsys_info("config: verbose=%d, frequency=%d, num_user_events=%lu num_rapl_events=%lu", verbose, frequency, num_user_events, num_rapl_events);
-    zsys_info("config: mongodb: uri=%s database=%s collection=%s", mongodb_uri, mongodb_database, mongodb_collection);
 
     /* setup mongodb */
     mongodb_conf = (struct mongodb_config){
@@ -255,65 +282,26 @@ main (int argc, char **argv)
     };
     reporting = zactor_new(reporting_actor, &reporting_conf);
 
-    /* watch new/dead container(s) and start/stop monitoring actor(s) */
-    if (initialize_cgroups()) {
-        zsys_error("cgroups: cannot initialize the cgroup library");
-        goto cleanup;
-    }
-
     /* create ticker publisher socket */
     ticker = zsock_new_pub("inproc://ticker");
 
-    /* used to store monitoring actors, the actor is killed when removed from the hash table */
-    monitoring_actors = zhashx_new();
-    zhashx_set_destructor(monitoring_actors, (zhashx_destructor_fn *) zactor_destroy);
+    /* start system monitoring actor */
+    monitor_config = perf_config_create(hwinfo, system_events_groups, "system", NULL);
+    system_perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
 
-    /* start monitoring actor for rapl target (only if RAPL events are enabled & available) */
-    if (flag_rapl_events) {
-        monitor_config = perf_config_create(hwinfo, rapl_events_config, "rapl", NULL, true);
-        perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
-        zhashx_insert(monitoring_actors, "rapl", perf_monitor);
-    }
-
-    /* start monitoring actor for pcu target (only if PCU events are enabled & available */
-    if (flag_pcu_events) {
-        monitor_config = perf_config_create(hwinfo, pcu_events_config, "pcu", NULL, true);
-        perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
-        zhashx_insert(monitoring_actors, "pcu", perf_monitor);
-    }
-
-    cgroups_running = zhashx_new();
-    zhashx_set_destructor(cgroups_running, (zhashx_destructor_fn *) zstr_free);
+    /* monitor running containers */
+    container_monitoring_actors = zhashx_new();
+    zhashx_set_destructor(container_monitoring_actors, (zhashx_destructor_fn *) zactor_destroy);
     while (!zsys_interrupted) {
-        /* get running container(s) */
-        get_running_perf_event_cgroups(cgroup_basepath, cgroups_running);
-
-        /* stop monitoring dead container(s) */
-        for (perf_monitor = zhashx_first(monitoring_actors); perf_monitor; perf_monitor = zhashx_next(monitoring_actors)) {
-            cgroup_name = zhashx_cursor(monitoring_actors);
-            if (!streq(cgroup_name, "rapl") && !streq(cgroup_name, "pcu") && !zhashx_lookup(cgroups_running, cgroup_name)) { /* ignore system target */
-                zsys_info("killing monitoring actor of %s", cgroup_name);
-                zhashx_delete(monitoring_actors, cgroup_name);
-            }
+        /* monitor containers only when needed */
+        if (zhashx_size(container_events_groups)) {
+            sync_cgroups_running_monitored(hwinfo, container_events_groups, cgroup_basepath, container_monitoring_actors);
         }
-
-        /* start monitoring new container(s) */
-        for (cgroup_path = zhashx_first(cgroups_running); cgroup_path; cgroup_path = zhashx_next(cgroups_running)) {
-            cgroup_name = zhashx_cursor(cgroups_running);
-            if (!zhashx_lookup(monitoring_actors, cgroup_name)) {
-                zsys_info("starting monitoring actor for %s (path=%s)", cgroup_name, cgroup_path);
-                monitor_config = perf_config_create(hwinfo, user_events_config, cgroup_name, cgroup_path, false);
-                perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
-                zhashx_insert(monitoring_actors, cgroup_name, perf_monitor);
-            }
-        }
-
-        zhashx_purge(cgroups_running);
 
         /* send clock tick to monitoring actors */
         zsock_send(ticker, "s8", "CLOCK_TICK", zclock_time());
 
-        zclock_sleep(frequency);
+        zclock_sleep((int) frequency);
     }
 
     /* clean storage module ressources */
@@ -323,17 +311,16 @@ main (int argc, char **argv)
 
 cleanup:
     zhashx_destroy(&cgroups_running);
-    zhashx_destroy(&monitoring_actors); /* actors will be terminated, DO NOT FREE shared structures before */
+    zhashx_destroy(&container_monitoring_actors);
+    zactor_destroy(&system_perf_monitor);
     zactor_destroy(&reporting);
     mongodb_destroy(storage_module);
-    events_config_destroy(user_events_config);
-    events_config_destroy(rapl_events_config);
-    events_config_destroy(pcu_events_config);
+    zsock_destroy(&ticker);
+    zhashx_destroy(&system_events_groups);
+    zhashx_destroy(&container_events_groups);
     pmu_topology_destroy(sys_pmu_topology);
     pmu_deinitialize();
-    free(user_events_name);
     hwinfo_destroy(hwinfo);
-    zsock_destroy(&ticker);
     zsys_shutdown();
     return ret;
 }

@@ -6,37 +6,30 @@
 #include "util.h"
 #include "hwinfo.h"
 #include "events.h"
+#include "payload.h"
 #include "perf.h"
 #include "storage.h"
 
-struct report_payload *
-report_payload_create(uint64_t timestamp, char *cgroup_name, struct events_config *events)
+struct report_config *
+report_config_create(struct storage_module *storage_module)
 {
-    struct report_payload *rpl = malloc(sizeof(struct report_payload));
+    struct report_config *config = malloc(sizeof(struct report_config));
 
-    if (!rpl)
+    if (!config)
         return NULL;
 
-    rpl->timestamp = timestamp;
-    rpl->cgroup_name = cgroup_name;
-    rpl->events = events;
-    rpl->reports = zhashx_new();
-    zhashx_set_key_duplicator(rpl->reports, (zhashx_duplicator_fn *) uintptrdup);
-    zhashx_set_key_comparator(rpl->reports, (zhashx_comparator_fn *) uintptrcmp);
-    zhashx_set_key_destructor(rpl->reports, (zhashx_destructor_fn *) ptrfree);
-    zhashx_set_destructor(rpl->reports, (zhashx_destructor_fn *) ptrfree);
+    config->storage = storage_module;
 
-    return rpl;
+    return config;
 }
 
 void
-report_payload_destroy(struct report_payload *rpl)
+report_config_destroy(struct report_config *config)
 {
-    if (!rpl)
+    if (!config)
         return;
 
-    zhashx_destroy(&rpl->reports);
-    free(rpl);
+    free(config);
 }
 
 static struct report_context *
@@ -86,7 +79,7 @@ handle_pipe(struct report_context *ctx)
 static void
 handle_reporting(struct report_context *ctx)
 {
-    struct report_payload *payload = NULL;
+    struct payload *payload = NULL;
 
     zsock_recv(ctx->reporting, "p", &payload);
     
@@ -97,7 +90,7 @@ handle_reporting(struct report_context *ctx)
         zsys_error("report: failed to store the report for timestamp=%lu", payload->timestamp);
     }
 
-    report_payload_destroy(payload);
+    payload_destroy(payload);
 }
 
 void

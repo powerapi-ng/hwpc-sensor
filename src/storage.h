@@ -1,6 +1,7 @@
 #ifndef STORAGE_H
 #define STORAGE_H
 
+#include "payload.h"
 #include "report.h"
 
 /*
@@ -27,7 +28,7 @@ struct storage_module
     bool is_initialized;
     int (*initialize)(struct storage_module *self);
     int (*ping)(struct storage_module *self);
-    int (*store_report)(struct storage_module *self, struct report_payload *payload);
+    int (*store_report)(struct storage_module *self, struct payload *payload);
     int (*deinitialize)(struct storage_module *self);
 };
 

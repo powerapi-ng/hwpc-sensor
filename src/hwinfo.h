@@ -9,7 +9,7 @@
  */
 struct hwinfo_pkg
 {
-    zlistx_t *cpus_id; /* all cpus id as (unsigned int *) */
+    zlistx_t *cpus_id; /* char *cpu_id */
 };
 
 /*
@@ -17,8 +17,7 @@ struct hwinfo_pkg
  */
 struct hwinfo
 {
-    zhashx_t *pkgs; /* packages information as (unsigned int *, struct hwinfo_pkg *) */
-    zlistx_t *available_cpus_id; /* all available cpus id as (unsigned int *) */
+    zhashx_t *pkgs; /* char *pkg_id -> struct hwinfo_pkg *pkg */
 };
 
 /*
