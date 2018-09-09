@@ -72,8 +72,8 @@ main (int argc, char **argv)
     long frequency = 1000; /* in milliseconds */
     struct pmu_topology *sys_pmu_topology = NULL;
     char *cgroup_basepath = "/docker";
-    zhashx_t *system_events_groups = NULL; /* struct events_group *groups */
-    zhashx_t *container_events_groups = NULL; /* struct events_group *groups */
+    zhashx_t *system_events_groups = NULL; /* char *group_name -> struct events_group *group */
+    zhashx_t *container_events_groups = NULL; /* char *group_name -> struct events_group *group */
     struct events_group *current_events_group = NULL;
     char *sensor_name = NULL;
     char *mongodb_uri = NULL;
@@ -121,11 +121,13 @@ main (int argc, char **argv)
 
     /* stores events to monitor globally (system) */
     system_events_groups = zhashx_new();
-    zhashx_set_destructor(system_events_groups, (zlistx_destructor_fn *) events_group_destroy);
+    zhashx_set_duplicator(system_events_groups, (zhashx_duplicator_fn *) events_group_dup);
+    zhashx_set_destructor(system_events_groups, (zhashx_destructor_fn *) events_group_destroy);
 
     /* stores events to monitor per-container */
     container_events_groups = zhashx_new();
-    zhashx_set_destructor(system_events_groups, (zlistx_destructor_fn *) events_group_destroy);
+    zhashx_set_duplicator(container_events_groups, (zhashx_duplicator_fn *) events_group_dup);
+    zhashx_set_destructor(container_events_groups, (zhashx_destructor_fn *) events_group_destroy);
 
     /* parse cli arguments */
     while ((c = getopt(argc, argv, "vf:p:n:s:c:e:oU:D:C:")) != -1) {
@@ -154,18 +156,30 @@ main (int argc, char **argv)
                 break;
             case 's':
                 current_events_group = events_group_create(optarg);
+                if (!current_events_group) {
+                    zsys_error("sensor: failed to create the '%s' system group", optarg);
+                    goto cleanup;
+                }
                 zhashx_insert(system_events_groups, optarg, current_events_group);
+                events_group_destroy(&current_events_group);
+                current_events_group = zhashx_lookup(system_events_groups, optarg); /* get the duplicated events group */
                 break;
             case 'c':
                 current_events_group = events_group_create(optarg);
+                if (current_events_group) {
+                    zsys_error("sensor: failed to create the '%s' container group", optarg);
+                    goto cleanup;
+                }
                 zhashx_insert(container_events_groups, optarg, current_events_group);
+                events_group_destroy(&current_events_group);
+                current_events_group = zhashx_lookup(container_events_groups, optarg); /* get the duplicated events group */
                 break;
             case 'e':
                 if (!current_events_group) {
                     zsys_error("args: you cannot add events to an inexisting events group");
                     goto cleanup;
                 }
-                if (events_config_add(current_events_group->events, optarg)) {
+                if (events_group_append_event(current_events_group, optarg)) {
                     zsys_error("args: the event '%s' is invalid or unsupported by this machine", optarg);
                     goto cleanup;
                 }
@@ -230,7 +244,11 @@ main (int argc, char **argv)
 
     /* detect machine hardware */
     hwinfo = hwinfo_create();
-    if (!hwinfo || hwinfo_detect(hwinfo)) {
+    if (!hwinfo) {
+        zsys_error("hwinfo: error while creating hardware information container");
+        goto cleanup;
+    }
+    if (hwinfo_detect(hwinfo)) {
         zsys_error("hwinfo: error while detecting hardware information");
         goto cleanup;
     }

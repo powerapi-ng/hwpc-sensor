@@ -46,6 +46,9 @@ perf_config_destroy(struct perf_config *config)
 static void
 perf_event_fd_destroy(int **fd_ptr)
 {
+    if (!*fd_ptr)
+        return;
+
     close(**fd_ptr);
     free(*fd_ptr);
     *fd_ptr = NULL;
@@ -166,11 +169,11 @@ perf_context_destroy(struct perf_context *ctx)
 static int
 perf_events_group_setup_cpu(struct perf_context *ctx, struct perf_group_cpu_context *cpu_ctx, struct events_group *group, int perf_flags, const char *cpu_id)
 {
-    size_t i;
     int group_fd = -1;
     int perf_fd;
     char *cpu_id_endp = NULL;
     long cpu;
+    struct event_config *event = NULL;
 
     errno = 0;
     cpu = strtol(cpu_id, &cpu_id_endp, 0);
@@ -183,16 +186,16 @@ perf_events_group_setup_cpu(struct perf_context *ctx, struct perf_group_cpu_cont
         return -1;
     }
 
-    for (i = 0; i < group->events->num_attrs; i++) {
+    for (event = zlistx_first(group->events); event; event = zlistx_next(group->events)) {
         errno = 0;
-        perf_fd = perf_event_open(&group->events->attrs[i].perf_attr, ctx->cgroup_fd, (int) cpu, group_fd, perf_flags);
+        perf_fd = perf_event_open(&event->attr, ctx->cgroup_fd, (int) cpu, group_fd, perf_flags);
         if (perf_fd < 1) {
-            zsys_error("perf<%s>: failed opening perf event for group=%s cpu=%d event=%s errno=%d", ctx->config->cgroup_name, group->name, (int) cpu, group->events->attrs[i].name, errno);
+            zsys_error("perf<%s>: failed opening perf event for group=%s cpu=%d event=%s errno=%d", ctx->config->cgroup_name, group->name, (int) cpu, event->name, errno);
             return -1;
         }
 
         /* the first event is the group leader */
-        if (i == 0)
+        if (group_fd == -1)
             group_fd = perf_fd;
 
         zlistx_add_end(cpu_ctx->perf_fds, &perf_fd);
@@ -368,7 +371,8 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
     size_t perf_read_buffer_size;
     struct perf_read_format *perf_read_buffer = NULL;
     double perf_multiplexing_ratio;
-    size_t event_i;
+    const struct event_config *event = NULL;
+    int event_i;
 
     for (group_ctx = zhashx_first(ctx->groups_ctx); group_ctx; group_ctx = zhashx_next(ctx->groups_ctx)) {
         group_name = zhashx_cursor(ctx->groups_ctx);
@@ -379,7 +383,7 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
         }
 
         /* shared perf read buffer */
-        perf_read_buffer_size = offsetof(struct perf_read_format, values) + sizeof(struct perf_counter_value[group_ctx->config->events->num_attrs]);
+        perf_read_buffer_size = offsetof(struct perf_read_format, values) + sizeof(struct perf_counter_value[zlistx_size(group_ctx->config->events)]);
         perf_read_buffer = malloc(perf_read_buffer_size);
         if (!perf_read_buffer) {
             zsys_error("perf<%s>: failed to allocate perf read buffer for group=%s", ctx->config->cgroup_name, group_name);
@@ -417,8 +421,8 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
                 /* store events value */
                 zhashx_insert(cpu_data->events, "time_enabled", &perf_read_buffer->time_enabled);
                 zhashx_insert(cpu_data->events, "time_running", &perf_read_buffer->time_running);
-                for (event_i = 0; event_i < group_ctx->config->events->num_attrs; event_i++) {
-                    zhashx_insert(cpu_data->events, group_ctx->config->events->attrs[event_i].name, &perf_read_buffer->values[event_i].value);
+                for (event = zlistx_first(group_ctx->config->events), event_i = 0; event; event = zlistx_next(group_ctx->config->events), event_i++) {
+                    zhashx_insert(cpu_data->events, event->name, &perf_read_buffer->values[event_i].value);
                 }
 
                 zhashx_insert(pkg_data->cpus, cpu_id, cpu_data);
