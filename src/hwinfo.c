@@ -16,7 +16,6 @@ hwinfo_pkg_create()
     pkg->cpus_id = zlistx_new();
     zlistx_set_duplicator(pkg->cpus_id, (zlistx_duplicator_fn *) strdup);
     zlistx_set_destructor(pkg->cpus_id, (zlistx_destructor_fn *) ptrfree);
-    zlistx_set_comparator(pkg->cpus_id, (zlistx_comparator_fn *) strcmp);
 
     return pkg;
 }
@@ -37,13 +36,11 @@ hwinfo_pkg_dup(struct hwinfo_pkg *pkg)
 static void
 hwinfo_pkg_destroy(struct hwinfo_pkg **pkg_ptr)
 {
-    struct hwinfo_pkg *pkg = *pkg_ptr;
-
-    if (!pkg)
+    if (!*pkg_ptr)
         return;
 
-    zlistx_destroy(&pkg->cpus_id);
-    free(pkg);
+    zlistx_destroy(&(*pkg_ptr)->cpus_id);
+    free(*pkg_ptr);
     *pkg_ptr = NULL;
 }
 
@@ -139,7 +136,7 @@ do_packages_detection(struct hwinfo *hwinfo)
                 }
 
                 zhashx_insert(hwinfo->pkgs, pkg_id, pkg);
-                free(pkg);
+                hwinfo_pkg_destroy(&pkg);
                 pkg = zhashx_lookup(hwinfo->pkgs, pkg_id); /* get the copy the pkg done by zhashx_insert */
             }
 
