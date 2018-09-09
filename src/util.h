@@ -1,13 +1,15 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <stdint.h>
+
 /*
  * intdup returns a pointer to a new integer having the same value as val.
  */
 int *intdup(int val);
 
 /*
- * intptrdup returns a pointer to a new integer having the same value as the integer pointed by ptr.
+ * intptrdup returns a pointer to a new integer having the same value as the one pointed by ptr.
  */
 int *intptrdup(const int *ptr);
 
@@ -23,25 +25,25 @@ int intcmp(int a, int b);
 int intptrcmp(const int *a, const int *b);
 
 /*
- * uintdup returns a pointer to a new unsigned integer having the same value as val.
+ * uint64dup returns a pointer to a new uint64_t having the same value as val.
  */
-unsigned int *uintdup(unsigned int val);
+uint64_t *uint64dup(uint64_t val);
 
 /*
- * uintptrdup returns a pointer to a new unsigned integer having the same value as the unsigned integer pointed by ptr.
+ * uint64ptrdup returns a pointer to a new uint64_t having the same value as the one pointed by ptr.
  */
-unsigned int *uintptrdup(const unsigned int *ptr);
+uint64_t *uint64ptrdup(const uint64_t *ptr);
 
 /*
- * uintcmp compare two unsigned integer. (same behaviour as strcmp)
+ * uint64cmp compare two uint64_t. (same behaviour as strcmp)
  */
-int uintcmp(unsigned int a, unsigned int b);
+int uint64cmp(uint64_t a, uint64_t b);
 
 /*
- * uintptrcmp compare the value of two pointers to unsigned integer. (same behaviour as strcmp)
+ * uint64ptrcmp compare the value of two pointers to uint64_t. (same behaviour as strcmp)
  * Value having a NULL pointer is considered as 0.
  */
-int uintptrcmp(const unsigned int *a, const unsigned int *b);
+int uint64ptrcmp(const uint64_t *a, const uint64_t *b);
 
 /*
  * ptrfree free the memory pointed by ptr and set ptr to NULL.
