@@ -13,7 +13,7 @@ payload_cpu_data_create()
         return NULL;
 
     data->events = zhashx_new();
-    zhashx_set_duplicator(data->events, (zhashx_duplicator_fn *) uintptrdup);
+    zhashx_set_duplicator(data->events, (zhashx_duplicator_fn *) uint64ptrdup);
     zhashx_set_destructor(data->events, (zhashx_destructor_fn *) ptrfree);
 
     return data;
@@ -39,9 +39,6 @@ payload_pkg_data_create()
         return NULL;
 
     data->cpus = zhashx_new();
-    zhashx_set_key_duplicator(data->cpus, (zhashx_duplicator_fn *) uintptrdup);
-    zhashx_set_key_comparator(data->cpus, (zhashx_comparator_fn *) uintptrcmp);
-    zhashx_set_key_destructor(data->cpus, (zhashx_destructor_fn *) ptrfree);
     zhashx_set_destructor(data->cpus, (zhashx_destructor_fn *) payload_cpu_data_destroy);
 
     return data;
@@ -67,9 +64,6 @@ payload_group_data_create()
         return NULL;
 
     data->pkgs = zhashx_new();
-    zhashx_set_key_duplicator(data->pkgs, (zhashx_duplicator_fn *) uintptrdup);
-    zhashx_set_key_comparator(data->pkgs, (zhashx_comparator_fn *) uintptrcmp);
-    zhashx_set_key_destructor(data->pkgs, (zhashx_destructor_fn *) ptrfree);
     zhashx_set_destructor(data->pkgs, (zhashx_destructor_fn *) payload_pkg_data_destroy);
 
     return data;

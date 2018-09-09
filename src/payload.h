@@ -16,7 +16,7 @@ struct payload_cpu_data
  */
 struct payload_pkg_data
 {
-    zhashx_t *cpus; /* unsigned int *cpu_id -> struct payload_cpu_data *cpu_data */
+    zhashx_t *cpus; /* char *cpu_id -> struct payload_cpu_data *cpu_data */
 };
 
 /*
@@ -24,7 +24,7 @@ struct payload_pkg_data
  */
 struct payload_group_data
 {
-    zhashx_t *pkgs; /* unsigned int *pkg_id -> struct payload_pkg_data *pkg_data */
+    zhashx_t *pkgs; /* char *pkg_id -> struct payload_pkg_data *pkg_data */
 };
 
 /*
