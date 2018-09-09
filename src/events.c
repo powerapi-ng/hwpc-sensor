@@ -2,19 +2,19 @@
 #include <stdlib.h>
 
 #include "events.h"
+#include "util.h"
 
 static int
-get_perf_event_attr(char *event_name, struct event_attr *config)
+setup_perf_event_attr(char *event_name, struct perf_event_attr *attr)
 {
     pfm_perf_encode_arg_t arg = {0};
 
-    config->name = event_name;
-    config->perf_attr.size = sizeof(struct perf_event_attr);
-    config->perf_attr.disabled = 1;
-    config->perf_attr.read_format = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING | PERF_FORMAT_GROUP;
+    attr->size = sizeof(struct perf_event_attr);
+    attr->disabled = 1;
+    attr->read_format = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING | PERF_FORMAT_GROUP;
 
     arg.size = sizeof(pfm_perf_encode_arg_t);
-    arg.attr = &config->perf_attr;
+    arg.attr = attr;
     if (pfm_get_os_event_encoding(event_name, PFM_PLM0 | PFM_PLM3, PFM_OS_PERF_EVENT_EXT, &arg) != PFM_SUCCESS) {
         return -1;
     }
@@ -22,47 +22,37 @@ get_perf_event_attr(char *event_name, struct event_attr *config)
     return 0;
 }
 
-struct events_config *
-events_config_create()
+struct event_config *
+event_config_create(char *event_name)
 {
-    struct events_config *events = malloc(sizeof(struct events_config));
+    struct perf_event_attr attr = {0};
+    struct event_config *config = NULL;
 
-    if (!events)
-        return NULL;
+    if (!setup_perf_event_attr(event_name, &attr)) {
+        config = malloc(sizeof(struct event_config));
+        if (config) {
+            config->name = event_name;
+            config->attr = attr;
+        }
+    }
 
-    events->num_attrs = 0;
-    events->attrs = NULL;
-
-    return events;
+    return config;
 }
 
-void
-events_config_destroy(struct events_config *events)
+struct event_config *
+event_config_dup(struct event_config *config)
 {
-    if (!events)
-        return;
+    struct event_config *copy = NULL;
 
-    free(events->attrs);
-    free(events);
-}
+    if (config) {
+        copy = malloc(sizeof(struct event_config));
+        if (copy) {
+            copy->name = config->name;
+            copy->attr = config->attr;
+        }
+    }
 
-int
-events_config_add(struct events_config *events, char *event_name)
-{
-    struct event_attr attr = {0};
-
-    if (!events || !event_name)
-        return -1;
-
-    if (get_perf_event_attr(event_name, &attr))
-        return -1;
-
-    events->attrs = realloc(events->attrs, sizeof(struct event_attr) * (events->num_attrs + 1));
-    if (!events->attrs)
-        return -1;
-
-    events->attrs[events->num_attrs++] = attr;
-    return 0;
+    return copy;
 }
 
 struct events_group *
@@ -70,23 +60,59 @@ events_group_create(char *name)
 {
     struct events_group *group = malloc(sizeof(struct events_group));
 
-    if (!group)
-        return NULL;
+    if (group) {
+        group->name = name;
+        group->type = MONITOR_ALL_CPU_PER_SOCKET; /* by default, monitor all cpu of the available socket(s) */
 
-    group->name = name;
-    group->events = events_config_create();
-    group->type = MONITOR_ALL_CPU_PER_SOCKET; /* by default, monitor all cpu of the available socket(s) */
+        group->events = zlistx_new();
+        zlistx_set_duplicator(group->events, (zlistx_duplicator_fn *) event_config_dup);
+        zlistx_set_destructor(group->events, (zlistx_destructor_fn *) ptrfree);
+    }
 
     return group;
 }
 
-void
-events_group_destroy(struct events_group *group)
+struct events_group *
+events_group_dup(struct events_group *group)
 {
-    if (!group)
-        return;
+    struct events_group *copy = NULL;
 
-    events_config_destroy(group->events);
-    free(group);
+    if (group) {
+        copy = malloc(sizeof(struct events_group));
+        if (copy) {
+            copy->name = group->name;
+            copy->type = group->type;
+            copy->events = zlistx_dup(group->events);
+        }
+    }
+
+    return copy;
+}
+
+int
+events_group_append_event(struct events_group *group, char *event_name)
+{
+    int ret = -1;
+    struct event_config *event = NULL;
+
+    if (group) {
+        event = event_config_create(event_name);
+        if (event) {
+            zlistx_add_end(group->events, event);
+            free(event);
+            ret = 0;
+        }
+    }
+
+    return ret;
+}
+
+void
+events_group_destroy(struct events_group **group)
+{
+    if (*group) {
+        zlistx_destroy(&(*group)->events);
+        free(*group);
+    }
 }
 
