@@ -342,7 +342,7 @@ handle_pipe(struct perf_context *ctx)
     
     if (streq(command, "$TERM")) {
         ctx->terminated = true;
-        zsys_info("perf<%s>: bye!", ctx->config->cgroup_name);
+        zsys_info("perf<%s>: shutting down actor", ctx->config->cgroup_name);
     }
     else
         zsys_error("perf<%s>: invalid pipe command: %s", ctx->config->cgroup_name, command);
@@ -478,7 +478,7 @@ perf_monitoring_actor(zsock_t *pipe, void *args)
     zsock_t *which = NULL;
 
     if (!ctx) {
-        zsys_error("perf<%s>: cannot create perf context", ctx->config->cgroup_name);
+        zsys_error("perf<%s>: cannot create perf context", ((struct perf_config *) args)->cgroup_name);
         free(args);
         return;
     }
