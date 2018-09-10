@@ -33,6 +33,7 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
 
     /* to store running cgroups name and absolute path */
     cgroups_running = zhashx_new();
+    zhashx_set_duplicator(cgroups_running, (zhashx_duplicator_fn *) strdup);
     zhashx_set_destructor(cgroups_running, (zhashx_destructor_fn *) zstr_free);
 
     /* get running container(s) */

@@ -25,7 +25,7 @@ get_running_perf_event_cgroups(const char *base_path, zhashx_t *running)
     while ((ret = cgroup_walk_tree_next(0, &handle, &info, lvl)) == 0) {
         if (info.type == CGROUP_FILE_TYPE_DIR) {
             container_id = strrchr(info.full_path, '/') + 1;
-            zhashx_insert(running, container_id, strdup(info.full_path));
+            zhashx_insert(running, container_id, &info.full_path);
         }
     }
 
