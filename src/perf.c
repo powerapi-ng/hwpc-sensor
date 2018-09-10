@@ -162,6 +162,7 @@ perf_context_destroy(struct perf_context *ctx)
     zpoller_destroy(&ctx->poller);
     zsock_destroy(&ctx->ticker);
     zsock_destroy(&ctx->reporting);
+    close(ctx->cgroup_fd);
     zhashx_destroy(&ctx->groups_ctx);
     free(ctx);
 }
@@ -223,7 +224,7 @@ perf_events_groups_initialize(struct perf_context *ctx)
         ctx->cgroup_fd = open(ctx->config->cgroup_path, O_RDONLY); 
         if (ctx->cgroup_fd < 1) {
             zsys_error("perf<%s>: cannot open cgroup dir path=%s errno=%d", ctx->config->cgroup_name, ctx->config->cgroup_path, errno);
-            return -1;
+            goto error;
         }
     }
 
@@ -234,7 +235,7 @@ perf_events_groups_initialize(struct perf_context *ctx)
         group_ctx = perf_group_context_create(events_group);
         if (!group_ctx) {
             zsys_error("perf<%s>: failed to create context for group=%s", ctx->config->cgroup_name, events_group_name);
-            return -1;
+            goto error;
         }
 
         for (pkg = zhashx_first(ctx->config->hwinfo->pkgs); pkg; pkg = zhashx_next(ctx->config->hwinfo->pkgs)) {
@@ -244,7 +245,7 @@ perf_events_groups_initialize(struct perf_context *ctx)
             pkg_ctx = perf_group_pkg_context_create();
             if (!pkg_ctx) {
                 zsys_error("perf<%s>: failed to create pkg context for group=%s pkg=%s", ctx->config->cgroup_name, events_group_name, pkg_id);
-                return -1;
+                goto error;
             }
 
             for (cpu_id = zlistx_first(pkg->cpus_id); cpu_id; cpu_id = zlistx_next(pkg->cpus_id)) {
@@ -252,13 +253,13 @@ perf_events_groups_initialize(struct perf_context *ctx)
                 cpu_ctx = perf_group_cpu_context_create();
                 if (!cpu_ctx) {
                     zsys_error("perf<%s>: failed to create cpu context for group=%s pkg=%s cpu=%s", ctx->config->cgroup_name, events_group_name, pkg_id, cpu_id);
+                    goto error;
                 }
 
                 /* open events of the group for the cpu */
                 if (perf_events_group_setup_cpu(ctx, cpu_ctx, events_group, perf_flags, cpu_id)) {
                     zsys_error("perf<%s>: failed to setup perf for group=%s pkg=%s cpu=%s", ctx->config->cgroup_name, events_group_name, pkg_id, cpu_id);
-                    perf_group_cpu_context_destroy(&cpu_ctx);
-                    return -1;
+                    goto error;
                 }
 
                 /* store cpu context */
@@ -277,6 +278,13 @@ perf_events_groups_initialize(struct perf_context *ctx)
     }
 
     return 0;
+
+error:
+    close(ctx->cgroup_fd);
+    perf_group_context_destroy(&group_ctx);
+    perf_group_pkg_context_destroy(&pkg_ctx);
+    perf_group_cpu_context_destroy(&cpu_ctx);
+    return -1;
 }
 
 static void
