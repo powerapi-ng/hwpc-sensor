@@ -1,3 +1,4 @@
+#include <czmq.h>
 #include <perfmon/pfmlib_perf_event.h>
 #include <stdlib.h>
 
@@ -55,6 +56,15 @@ event_config_dup(struct event_config *config)
     return copy;
 }
 
+void
+event_config_destroy(struct event_config **config)
+{
+    if (!*config)
+        return;
+
+    free(*config);
+}
+
 struct events_group *
 events_group_create(char *name)
 {
@@ -66,7 +76,7 @@ events_group_create(char *name)
 
         group->events = zlistx_new();
         zlistx_set_duplicator(group->events, (zlistx_duplicator_fn *) event_config_dup);
-        zlistx_set_destructor(group->events, (zlistx_destructor_fn *) ptrfree);
+        zlistx_set_destructor(group->events, (zlistx_destructor_fn *) event_config_destroy);
     }
 
     return group;

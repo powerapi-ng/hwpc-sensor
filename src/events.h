@@ -45,7 +45,7 @@ struct event_config *event_config_dup(struct event_config *config);
 /*
  * event_config_destroy free the allocated resources of the event config container.
  */
-void event_config_destroy(struct event_config *config);
+void event_config_destroy(struct event_config **config);
 
 /*
  * events_group_create allocate the required resources for the events group container.
