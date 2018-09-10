@@ -167,7 +167,7 @@ main (int argc, char **argv)
                 break;
             case 'c':
                 current_events_group = events_group_create(optarg);
-                if (current_events_group) {
+                if (!current_events_group) {
                     zsys_error("sensor: failed to create the '%s' container group", optarg);
                     goto cleanup;
                 }
@@ -286,9 +286,11 @@ main (int argc, char **argv)
     /* create ticker publisher socket */
     ticker = zsock_new_pub("inproc://ticker");
 
-    /* start system monitoring actor */
-    monitor_config = perf_config_create(hwinfo, system_events_groups, "system", NULL);
-    system_perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
+    /* start system monitoring actor only when needed */
+    if (zhashx_size(system_events_groups)) {
+        monitor_config = perf_config_create(hwinfo, system_events_groups, "system", NULL);
+        system_perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
+    }
 
     /* monitor running containers */
     container_monitoring_actors = zhashx_new();
