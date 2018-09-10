@@ -67,7 +67,6 @@ main (int argc, char **argv)
 {
     int ret = 1;
     int c;
-    size_t i;
     int verbose = 0;
     char *frequency_endp = NULL;
     long frequency = 1000; /* in milliseconds */
@@ -80,6 +79,7 @@ main (int argc, char **argv)
     char *mongodb_uri = NULL;
     char *mongodb_database = NULL;
     char *mongodb_collection = NULL;
+    struct pmu_info *pmu = NULL;
     struct hwinfo *hwinfo = NULL;
     struct mongodb_config mongodb_conf = {0};
     struct storage_module *storage_module = NULL;
@@ -233,14 +233,14 @@ main (int argc, char **argv)
         zsys_error("pmu: cannot detect system PMU topology");
         goto cleanup;
     }
-    for (i = 0; i < sys_pmu_topology->num_pmus; i++) {
+    for (pmu = zlistx_first(sys_pmu_topology->pmus); pmu; pmu = zlistx_next(sys_pmu_topology->pmus)) {
         zsys_info("pmu: found %s '%s' having %d events, %d counters (%d general, %d fixed)",
-                sys_pmu_topology->pmus[i].name,
-                sys_pmu_topology->pmus[i].desc,
-                sys_pmu_topology->pmus[i].nevents,
-                sys_pmu_topology->pmus[i].num_cntrs + sys_pmu_topology->pmus[i].num_fixed_cntrs,
-                sys_pmu_topology->pmus[i].num_cntrs,
-                sys_pmu_topology->pmus[i].num_fixed_cntrs);
+                pmu->info.name,
+                pmu->info.desc,
+                pmu->info.nevents,
+                pmu->info.num_cntrs + pmu->info.num_fixed_cntrs,
+                pmu->info.num_cntrs,
+                pmu->info.num_fixed_cntrs);
     }
 
     /* detect machine hardware */
