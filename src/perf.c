@@ -361,7 +361,7 @@ handle_pipe(struct perf_context *ctx)
 static inline double
 compute_perf_multiplexing_ratio(struct perf_read_format *report)
 {
-    return (!report->time_enabled) ? 0.0 : (double) report->time_running / (double) report->time_enabled;
+    return (!report->time_enabled) ? 1.0 : (double) report->time_running / (double) report->time_enabled;
 }
 
 static int
@@ -423,7 +423,7 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
                 /* warn if PMU multiplexing is happening */
                 perf_multiplexing_ratio = compute_perf_multiplexing_ratio(perf_read_buffer);
                 if (perf_multiplexing_ratio < 1.0) {
-                    zsys_warning("perf<%s>: perf multiplexing for group=%s pkg=%s cpu=%s ratio=%ld", ctx->config->cgroup_name, group_name, pkg_id, cpu_id, perf_multiplexing_ratio);
+                    zsys_warning("perf<%s>: perf multiplexing for group=%s pkg=%s cpu=%s ratio=%f", ctx->config->cgroup_name, group_name, pkg_id, cpu_id, perf_multiplexing_ratio);
                 }
 
                 /* store events value */
