@@ -98,13 +98,13 @@ main (int argc, char **argv)
 
     /* check if run as root */
     if (geteuid()) {
-        fprintf(stderr, "perms: this program requires to be run as root to work\n");
+        zsys_error("perms: this program requires to be run as root to work");
         goto cleanup;
     }
 
     /* set scheduling priority of the program */
     if (setpriority(PRIO_PROCESS, 0, -20)) {
-        fprintf(stderr, "priority: cannot set the process priority\n");
+        zsys_error("priority: cannot set the process priority");
         goto cleanup;
     }
 
