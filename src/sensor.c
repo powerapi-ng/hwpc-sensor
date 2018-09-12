@@ -96,6 +96,9 @@ main (int argc, char **argv)
         return ret;
     }
 
+    /* disable limit of maximum czmq sockets */
+    zsys_set_max_sockets(0);
+
     /* check if run as root */
     if (geteuid()) {
         zsys_error("perms: this program requires to be run as root to work");
