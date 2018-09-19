@@ -1,0 +1,2 @@
+---
+Checks: '-*,bugprone-*,cert-*,clang-analyzer-*,misc-*,performance-*,portability-*,readability-*,-readability-braces-around-statements'
