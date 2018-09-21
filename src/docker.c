@@ -16,7 +16,7 @@ docker_get_container_name_from_id(const char *full_id)
     char *container_name = NULL;
 
     r = snprintf(config_path, DOCKER_CONFIG_PATH_BUFFER_SIZE, "/var/lib/docker/containers/%s/config.v2.json", full_id);
-    if (r <= 0 && r > DOCKER_CONFIG_PATH_BUFFER_SIZE)
+    if (r < 0 || r > DOCKER_CONFIG_PATH_BUFFER_SIZE)
         goto end;
 
     reader = bson_json_reader_new_from_file(config_path, &error);
