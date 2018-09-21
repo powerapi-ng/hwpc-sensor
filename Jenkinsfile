@@ -1,5 +1,11 @@
-node {
-    checkout scm
+node('linux docker') {
+    def dockerImageName = 'gfieni/hwpc-sensor:${env.BUILD_TAG}'
 
-    def image = docker.build("hwpc-sensor:${env.BUILD_ID}")
+    stage('git checkout') {
+        checkout scm
+    }
+
+    stage('docker build') {
+        sh 'docker build -t ${dockerImageName} --build-arg BUILD_TYPE=release .'
+    }
 }
