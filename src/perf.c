@@ -16,9 +16,9 @@
 #include "report.h"
 
 static enum perf_target_type
-detect_target_type(const char *cgroup_name __attribute__ ((unused)), const char *cgroup_path)
+detect_target_type(const char *cgroup_name, const char *cgroup_path)
 {
-    /* System */
+    /* System (not a cgroup) */
     if (!cgroup_path && cgroup_name)
         return PERF_TARGET_SYSTEM;
 
@@ -89,6 +89,7 @@ perf_config_destroy(struct perf_config *config)
     zhashx_destroy(&config->events_groups);
     free(config->cgroup_name);
     free(config->cgroup_path);
+    free(config->target_name);
     free(config);
 }
 
