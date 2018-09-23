@@ -19,6 +19,7 @@ pkg_check_modules(MONGOC REQUIRED libmongoc-1.0)
 add_executable(smartwatts-sensor
     src/config.h
     src/util.h src/util.c
+    src/docker.h src/docker.c
     src/pmu.h src/pmu.c
     src/events.h src/events.c
     src/hwinfo.h src/hwinfo.c

@@ -7,6 +7,17 @@
 #include "events.h"
 
 /*
+ * perf_target_type stores the supported target types by the module.
+ */
+enum perf_target_type
+{
+    PERF_TARGET_SYSTEM,
+    PERF_TARGET_DOCKER,
+    PERF_TARGET_LIBVIRT,
+    PERF_TARGET_UNKNOWN
+};
+
+/*
  * perf_config stores the configuration of a perf actor.
  */
 struct perf_config
@@ -15,6 +26,8 @@ struct perf_config
     zhashx_t *events_groups; /* char *group_name -> struct events_group *group_config */
     char *cgroup_name;
     char *cgroup_path;
+    enum perf_target_type target_type;
+    char *target_name;
 };
 
 /*

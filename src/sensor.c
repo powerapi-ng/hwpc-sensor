@@ -43,7 +43,7 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
         cgroup_name = zhashx_cursor(container_monitoring_actors);
         if (!zhashx_lookup(cgroups_running, cgroup_name)) {
-            zsys_info("sensor: killing monitoring actor of %s", cgroup_name);
+            zsys_info("sensor: killing monitoring actor of %s cgroup", cgroup_name);
             zhashx_delete(container_monitoring_actors, cgroup_name);
         }
     }
@@ -52,7 +52,7 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     for (cgroup_path = zhashx_first(cgroups_running); cgroup_path; cgroup_path = zhashx_next(cgroups_running)) {
         cgroup_name = zhashx_cursor(cgroups_running);
         if (!zhashx_lookup(container_monitoring_actors, cgroup_name)) {
-            zsys_info("sensor: starting monitoring actor for %s (path=%s)", cgroup_name, cgroup_path);
+            zsys_info("sensor: starting monitoring actor for %s (path=%s) cgroup", cgroup_name, cgroup_path);
             monitor_config = perf_config_create(hwinfo, container_events_groups, cgroup_name, cgroup_path);
             perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
             zhashx_insert(container_monitoring_actors, cgroup_name, perf_monitor);
