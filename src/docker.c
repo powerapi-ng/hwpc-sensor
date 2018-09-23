@@ -1,4 +1,6 @@
-#include <bson.h>
+#include <regex.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "docker.h"
@@ -8,34 +10,34 @@ docker_get_container_name_from_id(const char *full_id)
 {
     char config_path[DOCKER_CONFIG_PATH_BUFFER_SIZE];
     int r;
-    bson_json_reader_t *reader = NULL;
-    bson_t doc = BSON_INITIALIZER;
-    bson_error_t error;
-    bson_iter_t iter_doc;
-    bson_iter_t iter_name;
+    FILE *stream = NULL;
+    char *line = NULL;
+    size_t len = 0;
+    regex_t re = {0};
+    const char *expr = "\"Name\":\"/([a-zA-Z0-9][a-zA-Z0-9_.-]+)\"";
+    const size_t num_matches = 2;
+    regmatch_t matches[num_matches];
     char *container_name = NULL;
 
     r = snprintf(config_path, DOCKER_CONFIG_PATH_BUFFER_SIZE, "/var/lib/docker/containers/%s/config.v2.json", full_id);
     if (r < 0 || r > DOCKER_CONFIG_PATH_BUFFER_SIZE)
-        goto end;
+        return NULL;
 
-    reader = bson_json_reader_new_from_file(config_path, &error);
-    if (!reader)
-        goto end;
+    stream = fopen(config_path, "r");
+    if (!stream)
+        return NULL;
 
-    r = bson_json_reader_read(reader, &doc, &error);
-    if (r < 0)
-        goto end;
+    if (getline(&line, &len, stream) != -1) {
+        if (!regcomp(&re, expr, REG_EXTENDED | REG_NEWLINE)) {
+            if (!regexec(&re, line, num_matches, matches, 0)) {
+                container_name = strndup(line + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
+            }
+            regfree(&re);
+        }
+        free(line);
+    }
 
-    if (!bson_iter_init(&iter_doc, &doc) || !bson_iter_find_descendant(&iter_doc, "Name", &iter_name) || !BSON_ITER_HOLDS_UTF8(&iter_name))
-        goto end;
-
-    /* copy name without the leading slash */
-    container_name = strdup(bson_iter_utf8(&iter_name, 0) + 1); 
-
-end:
-    bson_json_reader_destroy(reader);
-    bson_destroy(&doc);
+    fclose(stream);
     return container_name;
 }
 
