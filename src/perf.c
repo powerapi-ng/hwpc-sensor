@@ -551,6 +551,8 @@ perf_monitoring_actor(zsock_t *pipe, void *args)
 
     perf_events_groups_enable(ctx);
 
+    zsys_info("perf<%s>: monitoring actor started", ctx->config->target_name);
+
     while (!ctx->terminated) {
         which = zpoller_wait(ctx->poller, -1);
 
