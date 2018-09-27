@@ -8,7 +8,7 @@ RUN cd /usr/src/smartwatts-sensor && \
     mkdir build && \
     cd build && \
     cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_C_CLANG_TIDY="clang-tidy" .. && \
-    make
+    make -j $(getconf _NPROCESSORS_ONLN)
 
 # runner image (only runtime depedencies):
 FROM debian:buster as runner
