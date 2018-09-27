@@ -6,6 +6,6 @@ node('linux && docker') {
     }
 
     stage('docker build') {
-        sh "docker build -t ${dockerImageName} --build-arg BUILD_TYPE=release ."
+        sh "docker build -t ${dockerImageName} --build-arg BUILD_TYPE=release --target builder ."
     }
 }
