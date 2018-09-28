@@ -4,15 +4,14 @@
 #include <czmq.h>
 
 /*
- * initialize_cgroups initialize the required ressources to work with cgroups.
+ * cgroups_initialize initialize the cgroups module.
  */
-int initialize_cgroups();
+int cgroups_initialize();
 
 /*
- * get_running_perf_event_cgroups stores the running perf_event cgroups into the provided hash table.
- * The container id as key and the absolute path to the perf_event cgroup as value. (as string)
+ * cgroups_get_running_subgroups stores the running perf_event cgroups name and path into the provided hash table.
  */
-int get_running_perf_event_cgroups(const char *base_path, zhashx_t *running);
+int cgroups_get_running_subgroups(const char *controller, const char *base_path, zhashx_t *subgroups);
 
 #endif /* CGROUPS_H */
 

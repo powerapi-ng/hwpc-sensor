@@ -4,13 +4,13 @@
 #include "cgroups.h"
 
 int
-initialize_cgroups()
+cgroups_initialize()
 {
     return cgroup_init();
 }
 
 int
-get_running_perf_event_cgroups(const char *base_path, zhashx_t *running)
+cgroups_get_running_subgroups(const char *controller, const char *base_path, zhashx_t *subgroups)
 {
     int ret = -1;
     void *handle = NULL;
@@ -18,14 +18,14 @@ get_running_perf_event_cgroups(const char *base_path, zhashx_t *running)
     int lvl;
     char *container_id = NULL;
 
-    if (cgroup_walk_tree_begin("perf_event", base_path, 1, &handle, &info, &lvl) != 0) {
+    if (cgroup_walk_tree_begin(controller, base_path, 1, &handle, &info, &lvl) != 0) {
         return ret;
     }
 
     while ((ret = cgroup_walk_tree_next(0, &handle, &info, lvl)) == 0) {
         if (info.type == CGROUP_FILE_TYPE_DIR) {
             container_id = strrchr(info.full_path, '/') + 1;
-            zhashx_insert(running, container_id, (char *) info.full_path);
+            zhashx_insert(subgroups, container_id, (char *) info.full_path);
         }
     }
 
