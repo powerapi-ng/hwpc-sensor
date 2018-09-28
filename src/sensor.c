@@ -37,7 +37,7 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     zhashx_set_destructor(cgroups_running, (zhashx_destructor_fn *) zstr_free);
 
     /* get running container(s) */
-    get_running_perf_event_cgroups(cgroup_basepath, cgroups_running);
+    cgroups_get_running_subgroups("perf_event", cgroup_basepath, cgroups_running);
 
     /* stop monitoring dead container(s) */
     for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
@@ -112,7 +112,7 @@ main (int argc, char **argv)
     }
 
     /* initialize the cgroups module */
-    if (initialize_cgroups()) {
+    if (cgroups_initialize()) {
         zsys_error("cgroups: cannot initialize the cgroup module");
         goto cleanup;
     }
