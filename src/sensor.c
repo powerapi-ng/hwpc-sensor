@@ -28,6 +28,7 @@
 #include "cgroups.h"
 #include "perf.h"
 #include "report.h"
+#include "csv.h"
 #include "mongodb.h"
 
 void
@@ -35,8 +36,9 @@ usage()
 {
     fprintf(stderr, "usage: smartwatts-sensor [-v] [-f FREQUENCY] [-p CGROUP_PATH] -n SENSOR_NAME\n"
             "\t-c | -s EVENT_GROUP_NAME [-o] -e EVENT_NAME\n"
-            "\t[-r mongodb]\n"
-            "\t\tMongoDB: -U MONGODB_URI -D MONGODB_DATABASE -C MONGODB_COLLECTION\n");
+            "\t-r csv | mongodb\n"
+            "\t  CSV: -O OUTPUT_DIR\n"
+            "\t  MongoDB: -U MONGODB_URI -D MONGODB_DATABASE -C MONGODB_COLLECTION\n");
 }
 
 void
@@ -91,13 +93,18 @@ main (int argc, char **argv)
     zhashx_t *container_events_groups = NULL; /* char *group_name -> struct events_group *group */
     struct events_group *current_events_group = NULL;
     char *sensor_name = NULL;
+    char *storage_type = "csv";
+    char *csv_output_dir = NULL;
     char *mongodb_uri = NULL;
     char *mongodb_database = NULL;
     char *mongodb_collection = NULL;
     struct pmu_info *pmu = NULL;
     struct hwinfo *hwinfo = NULL;
-    struct mongodb_config mongodb_conf = {0};
-    struct storage_module *storage_module = NULL;
+    struct csv_config *csv_conf = NULL;
+    struct storage_module *csv_storage = NULL;
+    struct mongodb_config *mongodb_conf = NULL;
+    struct storage_module *mongodb_storage = NULL;
+    struct storage_module *storage = NULL;
     struct report_config reporting_conf = {0};
     zactor_t *reporting = NULL;
     zhashx_t *cgroups_running = NULL; /* char *cgroup_name -> char *cgroup_absolute_path */
@@ -149,7 +156,7 @@ main (int argc, char **argv)
     zhashx_set_destructor(container_events_groups, (zhashx_destructor_fn *) events_group_destroy);
 
     /* parse cli arguments */
-    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:oU:D:C:")) != -1) {
+    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:or:O:U:D:C:")) != -1) {
         switch (c)
         {
             case 'v':
@@ -210,6 +217,12 @@ main (int argc, char **argv)
                 }
                 current_events_group->type = MONITOR_ONE_CPU_PER_SOCKET;
                 break;
+            case 'r':
+                storage_type = optarg;
+                break;
+            case 'O':
+                csv_output_dir = optarg;
+                break;
             case 'U':
                 mongodb_uri = optarg;
                 break;
@@ -236,8 +249,12 @@ main (int argc, char **argv)
         goto cleanup;
     }
 
-    if (!mongodb_uri || !mongodb_database || !mongodb_collection) {
-        zsys_error("args: you must provide a mongodb configuration");
+    if (strstr(storage_type, "csv") && (!csv_output_dir)) {
+        zsys_error("args: you must provide the required CSV storage module configuration");
+        goto cleanup;
+    }
+    if (strstr(storage_type, "mongodb") && (!mongodb_uri || !mongodb_database || !mongodb_collection)) {
+        zsys_error("args: you must provide the required MongoDB storage module configuration");
         goto cleanup;
     }
 
@@ -274,32 +291,40 @@ main (int argc, char **argv)
         goto cleanup;
     }
 
-    /* setup mongodb */
-    mongodb_conf = (struct mongodb_config){
-        .hwinfo = hwinfo,
-        .sensor_name = sensor_name,
-        .uri = mongodb_uri,
-        .database_name = mongodb_database,
-        .collection_name = mongodb_collection
-    };
-    storage_module = mongodb_create(&mongodb_conf);
-    if (!storage_module) {
+    /* setup storage module */
+    if (strstr(storage_type, "csv")) {
+        csv_conf = csv_config_create(sensor_name, csv_output_dir);
+        if (!csv_conf) {
+            zsys_error("sensor: failed to create CSV config");
+            goto cleanup;
+        }
+        storage = csv_storage = csv_create(csv_conf);
+    }
+    if (strstr(storage_type, "mongodb")) {
+        mongodb_conf = mongodb_config_create(sensor_name, mongodb_uri, mongodb_database, mongodb_collection);
+        if (!mongodb_conf) {
+            zsys_error("sensor: failed to create MongoDB config");
+            goto cleanup;
+        }
+        storage = mongodb_storage = mongodb_create(mongodb_conf);
+    }
+    if (!storage) {
         zsys_error("sensor: failed to create storage module");
         goto cleanup;
     }
-    if (STORAGE_MODULE_CALL(storage_module, initialize)) {
+    if (STORAGE_MODULE_CALL(storage, initialize)) {
         zsys_error("sensor: failed to initialize storage module");
         goto cleanup;
     }
-    if (STORAGE_MODULE_CALL(storage_module, ping)) {
+    if (STORAGE_MODULE_CALL(storage, ping)) {
         zsys_error("sensor: failed to ping storage module");
-        STORAGE_MODULE_CALL(storage_module, deinitialize);
+        STORAGE_MODULE_CALL(storage, deinitialize);
         goto cleanup;
     }
 
     /* start reporting actor */
     reporting_conf = (struct report_config){
-        .storage = storage_module
+        .storage = storage
     };
     reporting = zactor_new(reporting_actor, &reporting_conf);
 
@@ -328,7 +353,7 @@ main (int argc, char **argv)
     }
 
     /* clean storage module ressources */
-    STORAGE_MODULE_CALL(storage_module, deinitialize);
+    STORAGE_MODULE_CALL(storage, deinitialize);
 
     ret = 0;
 
@@ -337,7 +362,10 @@ cleanup:
     zhashx_destroy(&container_monitoring_actors);
     zactor_destroy(&system_perf_monitor);
     zactor_destroy(&reporting);
-    mongodb_destroy(storage_module);
+    csv_destroy(csv_storage);
+    csv_config_destroy(csv_conf);
+    mongodb_destroy(mongodb_storage);
+    mongodb_config_destroy(mongodb_conf);
     zsock_destroy(&ticker);
     zhashx_destroy(&system_events_groups);
     zhashx_destroy(&container_events_groups);
