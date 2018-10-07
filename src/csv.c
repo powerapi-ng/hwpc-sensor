@@ -164,91 +164,90 @@ end:
 }
 
 static int
-write_group_header(FILE *fd, zlistx_t *events_name)
+write_group_header(struct csv_context *ctx, const char *group, FILE *fd, zhashx_t *events)
 {
     char buffer[CSV_LINE_BUFFER_SIZE];
     int r;
+    zlistx_t *events_name = NULL;
     const char *event_name = NULL;
     int written = 0;
 
-    /* static elements */
+    /* get events name */
+    events_name = zhashx_keys(events);
+    if (!events_name)
+        goto error;
+
+    /* sort events by name */
+    zlistx_set_comparator(events_name, (zlistx_comparator_fn *) strcmp);
+    zlistx_sort(events_name);
+
+    /* write static elements to buffer */
     r = snprintf(buffer, CSV_LINE_BUFFER_SIZE, "timestamp,sensor,target,socket,cpu");
     if (r < 0 || r > CSV_LINE_BUFFER_SIZE)
-        return -1;
-
+        goto error;
     written += r;
 
-    /* dynamic elements */
+    /* append dynamic elements (events) to buffer */
     for (event_name = zlistx_first(events_name); event_name; event_name = zlistx_next(events_name)) {
         r = snprintf(buffer + written, CSV_LINE_BUFFER_SIZE - written, ",%s", event_name);
         if (r < 0 || r > (CSV_LINE_BUFFER_SIZE - written))
-            return -1;
-
+            goto error;
         written += r;
     }
 
     /* write header in file */
     if (fprintf(fd, "%s\n", buffer) < 0)
-        return -1;
+        goto error;
 
-    /* force writing of the header in file */
+    /* force writing to the disk */
     fflush(fd);
 
+    /* store events name in the order written in header */
+    zhashx_insert(ctx->groups_events, group, events_name);
+
     return 0;
+
+error:
+    zlistx_destroy(&events_name);
+    return -1;
 }
 
-static FILE *
-open_group_outfile(struct csv_context *ctx, const char *group_name, zlistx_t *events_name)
+static int
+open_group_outfile(struct csv_context *ctx, const char *group_name)
 {
     char path_buffer[CSV_PATH_BUFFER_SIZE];
     int r;
     struct stat outfile_stat = {0};
-    bool outfile_already_exists = false;
     FILE *group_fd = NULL;
 
     /* construct group output file path */
     r = snprintf(path_buffer, CSV_PATH_BUFFER_SIZE, "%s/%s", ctx->config->output_dir, group_name);
     if (r < 0 || r > CSV_PATH_BUFFER_SIZE) {
         zsys_error("csv: failed to build path for group=%s", group_name);
-        return NULL;
+        return -1;
     }
 
     /* check if output file already exists */
     if (stat(path_buffer, &outfile_stat) != -1) {
-        if (!S_ISREG(outfile_stat.st_mode)) {
-            zsys_error("csv: output file for group=%s already exists but is not a regular file", group_name);
-            return NULL;
-        }
-        outfile_already_exists = true;
+        zsys_error("csv: output file for group=%s already exists", group_name);
+        return -1;
     }
 
     /* open/create output file */
     errno = 0;
-    group_fd = fopen(path_buffer, "a");
+    group_fd = fopen(path_buffer, "w");
     if (!group_fd) {
         zsys_error("csv: failed to open output file for group=%s: %s", group_name, strerror(errno));
-        return NULL;
+        return -1;
     }
 
-    /* write csv header when needed */
-    if (!outfile_already_exists) {
-        if(write_group_header(group_fd, events_name)) {
-            zsys_error("csv: failed to write csv header for group=%s", group_name);
-            fclose(group_fd);
-            return NULL;
-        }
-
-        /* store events name in the order written in header of the file */
-        zhashx_insert(ctx->groups_events, group_name, events_name);
-    }
-
-    return group_fd;
+    zhashx_insert(ctx->groups_fd, group_name, group_fd);
+    return 0;
 }
 
 static int
-write_report_values(struct csv_context *ctx, uint64_t timestamp, const char *group, const char *target, const char *socket, const char *cpu, zhashx_t *events_value)
+write_events_value(struct csv_context *ctx, const char *group, FILE *fd, uint64_t timestamp, const char *target, const char *socket, const char *cpu, zhashx_t *events)
 {
-    FILE *fd = NULL;
     zlistx_t *events_name = NULL;
     int r;
     char buffer[CSV_LINE_BUFFER_SIZE];
@@ -256,37 +255,23 @@ write_report_values(struct csv_context *ctx, uint64_t timestamp, const char *gro
     const char *event_name = NULL;
     const uint64_t *event_value = NULL;
 
-    /* get group output file fd */
-    fd = zhashx_lookup(ctx->groups_fd, group);
-    if (!fd) {
-        events_name = zhashx_keys(events_value);
-        fd = open_group_outfile(ctx, group, events_name);
-        if (!fd) {
-            zlistx_destroy(&events_name);
-            return -1;
-        }
-
-        /* store fd of group outfile */
-        zhashx_insert(ctx->groups_fd, group, fd);
-    }
-
     /* get events name in the order of csv header */
     events_name = zhashx_lookup(ctx->groups_events, group);
     if (!events_name) {
         return -1;
     }
 
-    /* static elements */
+    /* write static elements to buffer */
     r = snprintf(buffer, CSV_LINE_BUFFER_SIZE, "%" PRIu64 ",%s,%s,%s,%s", timestamp, ctx->config->sensor_name, target, socket, cpu);
     if (r < 0 || r > CSV_LINE_BUFFER_SIZE) {
         return -1;
     }
     written += r;
  
-    /* dynamic elements */
+    /* write dynamic elements (events) to buffer */
     for (event_name = zlistx_first(events_name); event_name; event_name = zlistx_next(events_name)) {
         /* get event counter value */
-        event_value = zhashx_lookup(events_value, event_name);
+        event_value = zhashx_lookup(events, event_name);
         if (!event_value) {
             return -1;
         }
@@ -312,6 +297,8 @@ csv_store_report(struct storage_module *module, struct payload *payload)
     struct csv_context *ctx = module->context;
     struct payload_group_data *group_data = NULL;
     const char *group_name = NULL;
+    FILE *group_fd = NULL;
+    bool write_header = false;
     struct payload_pkg_data *pkg_data = NULL;
     const char *pkg_id = NULL;
     struct payload_cpu_data *cpu_data = NULL;
@@ -324,6 +311,15 @@ csv_store_report(struct storage_module *module, struct payload *payload)
      */
     for (group_data = zhashx_first(payload->groups); group_data; group_data = zhashx_next(payload->groups)) {
         group_name = zhashx_cursor(payload->groups);
+        group_fd = zhashx_lookup(ctx->groups_fd, group_name);
+        if (!group_fd) {
+            if (open_group_outfile(ctx, group_name)) {
+                zsys_error("csv: failed to open outfile for group=%s", group_name);
+                return -1;
+            }
+            group_fd = zhashx_lookup(ctx->groups_fd, group_name);
+            write_header = true;
+        }
 
         for (pkg_data = zhashx_first(group_data->pkgs); pkg_data; pkg_data = zhashx_next(group_data->pkgs)) {
             pkg_id = zhashx_cursor(group_data->pkgs);
@@ -331,7 +327,14 @@ csv_store_report(struct storage_module *module, struct payload *payload)
             for (cpu_data = zhashx_first(pkg_data->cpus); cpu_data; cpu_data = zhashx_next(pkg_data->cpus)) {
                 cpu_id = zhashx_cursor(pkg_data->cpus);
 
-                if (write_report_values(ctx, payload->timestamp, group_name, payload->target_name, pkg_id, cpu_id, cpu_data->events)) {
+                if (write_header) {
+                    if (write_group_header(ctx, group_name, group_fd, cpu_data->events)) {
+                        zsys_error("csv: failed to write header to file for group=%s", group_name);
+                        return -1;
+                    }
+                    write_header = false;
+                }
+                if (write_events_value(ctx, group_name, group_fd, payload->timestamp, payload->target_name, pkg_id, cpu_id, cpu_data->events)) {
                     zsys_error("csv: failed to write report to file for group=%s timestamp=%" PRIu64, group_name, payload->timestamp);
                     return -1;
                 }
