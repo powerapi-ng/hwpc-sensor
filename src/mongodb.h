@@ -27,11 +27,10 @@
  */
 struct mongodb_config
 {
+    char *sensor_name;
     char *uri;
     char *database_name;
     char *collection_name;
-    struct hwinfo *hwinfo;
-    char *sensor_name;
 };
 
 /*
@@ -44,6 +43,16 @@ struct mongodb_context
     mongoc_client_t *client;
     mongoc_collection_t *collection;
 };
+
+/*
+ * mongodb_config_create allocate and setup the config struct for the mongodb storage module.
+ */
+struct mongodb_config *mongodb_config_create(char *sensor_name, char *uri, char *database, char *collection);
+
+/*
+ * mongodb_config_destroy free the allocated resources for the config struct of the mongodb storage module.
+ */
+void mongodb_config_destroy(struct mongodb_config *config);
 
 /*
  * mongodb_create allocate the ressources needed for the module.

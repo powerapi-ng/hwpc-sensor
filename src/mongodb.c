@@ -21,6 +21,31 @@
 #include "report.h"
 #include "perf.h"
 
+struct mongodb_config *
+mongodb_config_create(char *sensor_name, char *uri, char *database, char *collection)
+{
+    struct mongodb_config *config = malloc(sizeof(struct mongodb_config));
+
+    if (!config)
+        return NULL;
+
+    config->sensor_name = sensor_name;
+    config->uri = uri;
+    config->database_name = database;
+    config->collection_name = collection;
+
+    return config;
+}
+
+void
+mongodb_config_destroy(struct mongodb_config *config)
+{
+    if (!config)
+        return;
+
+    free(config);
+}
+
 static struct mongodb_context *
 mongodb_context_create(struct mongodb_config *config)
 {
