@@ -32,6 +32,7 @@
 enum storage_type
 {
     STORAGE_NONE,
+    STORAGE_CSV,
     STORAGE_MONGODB
 };
 

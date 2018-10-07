@@ -28,6 +28,7 @@ add_executable(smartwatts-sensor
     src/report.h src/report.c
     src/perf.h src/perf.c
     src/storage.h src/storage.c
+    src/csv.h src/csv.c
     src/mongodb.c src/mongodb.h
     src/sensor.c
 )
