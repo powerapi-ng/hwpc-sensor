@@ -2,11 +2,12 @@ cmake_minimum_required(VERSION 2.8)
 project(smartwatts-sensor LANGUAGES C)
 
 # Compiler/linker flags:
+set(CMAKE_C_STANDARD 99)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Werror")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address,undefined -fno-omit-frame-pointer")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fsanitize=address,undefined -fno-omit-frame-pointer")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_FORTIFY_SOURCE=2")
 
 # External libraries:
 find_package(PkgConfig)
@@ -28,6 +29,7 @@ add_executable(smartwatts-sensor
     src/report.h src/report.c
     src/perf.h src/perf.c
     src/storage.h src/storage.c
+    src/csv.h src/csv.c
     src/mongodb.c src/mongodb.h
     src/sensor.c
 )
