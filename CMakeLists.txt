@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
-project(smartwatts-sensor LANGUAGES C)
+project(hwpc-sensor LANGUAGES C)
+option(WITH_MONGODB "Build with support for MongoDB storage module" ON)
 
-# Compiler/linker flags:
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -9,15 +9,12 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -We
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fsanitize=address,undefined -fno-omit-frame-pointer")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_FORTIFY_SOURCE=2")
 
-# External libraries:
 find_package(PkgConfig)
 pkg_check_modules(CZMQ REQUIRED libczmq)
 #pkg_check_modules(PFM REQUIRED libpfm)
 pkg_check_modules(CGROUP REQUIRED libcgroup)
-pkg_check_modules(BSON REQUIRED libbson-1.0)
-pkg_check_modules(MONGOC REQUIRED libmongoc-1.0)
 
-add_executable(smartwatts-sensor
+set(SENSOR_SOURCES
     src/config.h
     src/util.h src/util.c
     src/docker.h src/docker.c
@@ -30,11 +27,25 @@ add_executable(smartwatts-sensor
     src/perf.h src/perf.c
     src/storage.h src/storage.c
     src/csv.h src/csv.c
-    src/mongodb.c src/mongodb.h
     src/sensor.c
 )
 
-target_include_directories(smartwatts-sensor PRIVATE "${CZMQ_INCLUDE_DIRS}" "${CGROUP_INCLUDE_DIRS}" "${BSON_INCLUDE_DIRS}" "${MONGOC_INCLUDE_DIRS}")
-target_compile_definitions(smartwatts-sensor PRIVATE "${CZMQ_DEFINITIONS}" "${CGROUP_DEFINITIONS}" "${BSON_DEFINITIONS}" "${MONGOC_DEFINITIONS}")
-target_link_libraries(smartwatts-sensor "${CZMQ_LIBRARIES}" pfm "${HWLOC_LIBRARIES}" "${CGROUP_LIBRARIES}" "${BSON_LIBRARIES}" "${MONGOC_LIBRARIES}")
+set(SENSOR_INCLUDES "${CZMQ_INCLUDE_DIRS}" "${CGROUP_INCLUDE_DIRS}")
+set(SENSOR_DEFINITIONS "${CZMQ_DEFINITIONS}" "${CGROUP_DEFINITIONS}")
+set(SENSOR_LIBRARIES "${CZMQ_LIBRARIES}" "${CGROUP_LIBRARIES}" pfm)
+
+if(WITH_MONGODB)
+    pkg_check_modules(BSON REQUIRED libbson-1.0)
+    pkg_check_modules(MONGOC REQUIRED libmongoc-1.0)
+    set(SENSOR_SOURCES "${SENSOR_SOURCES}" src/mongodb.c src/mongodb.h)
+    set(SENSOR_INCLUDES "${SENSOR_INCLUDES}" "${BSON_INCLUDE_DIRS}" "${MONGOC_INCLUDE_DIRS}")
+    set(SENSOR_DEFINITIONS "${SENSOR_DEFINITIONS}" "${BSON_DEFINITIONS}" "${MONGOC_DEFINITIONS}")
+    set(SENSOR_LIBRARIES "${SENSOR_LIBRARIES}" "${BSON_LIBRARIES}" "${MONGOC_LIBRARIES}")
+    add_definitions(-DHAVE_MONGODB)
+endif()
+
+add_executable(hwpc-sensor "${SENSOR_SOURCES}")
+target_include_directories(hwpc-sensor PRIVATE "${SENSOR_INCLUDES}")
+target_compile_definitions(hwpc-sensor PRIVATE "${SENSOR_DEFINITIONS}")
+target_link_libraries(hwpc-sensor "${SENSOR_LIBRARIES}")
 
