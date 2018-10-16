@@ -16,9 +16,9 @@
  */
 
 #include <stdlib.h>
+#include <strings.h>
 
 #include "storage.h"
-#include "mongodb.h"
 
 struct storage_module *
 storage_module_create()
@@ -31,12 +31,29 @@ storage_module_create()
     return module;
 }
 
+enum storage_type
+storage_module_get_type(const char *type_name)
+{
+    if (strcasecmp(type_name, "csv") == 0) {
+        return STORAGE_CSV;
+    }
+
+#ifdef HAVE_MONGODB
+    if (strcasecmp(type_name, "mongodb") == 0) {
+        return STORAGE_MONGODB;
+    }
+#endif
+
+    return STORAGE_UNKNOWN;
+}
+
 void
 storage_module_destroy(struct storage_module *module)
 {
     if (!module)
         return;
 
+    STORAGE_MODULE_CALL(module, destroy);
     free(module);
 }
 

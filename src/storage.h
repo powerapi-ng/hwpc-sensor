@@ -31,9 +31,11 @@
  */
 enum storage_type
 {
-    STORAGE_NONE,
+    STORAGE_UNKNOWN,
     STORAGE_CSV,
-    STORAGE_MONGODB
+#ifdef HAVE_MONGODB
+    STORAGE_MONGODB,
+#endif
 };
 
 /*
@@ -48,12 +50,18 @@ struct storage_module
     int (*ping)(struct storage_module *self);
     int (*store_report)(struct storage_module *self, struct payload *payload);
     int (*deinitialize)(struct storage_module *self);
+    void (*destroy)(struct storage_module *self);
 };
 
 /*
  * storage_module_create allocate the required ressources for a storage module.
  */
 struct storage_module *storage_module_create();
+
+/*
+ * storage_module_get_type returns the type of the given storage module name.
+ */
+enum storage_type storage_module_get_type(const char *type_name);
 
 /*
  * storage_module_destroy free the allocated ressources for the storage module.
