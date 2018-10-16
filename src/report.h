@@ -20,7 +20,6 @@
 
 #include <czmq.h>
 #include <stdint.h>
-#include <mongoc.h>
 
 /*
  * report_config stores the reporting module configuration.

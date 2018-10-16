@@ -17,7 +17,6 @@
 
 #include <czmq.h>
 #include <stdint.h>
-#include <mongoc.h>
 
 #include "report.h"
 #include "util.h"
