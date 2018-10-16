@@ -21,40 +21,19 @@
 #include "report.h"
 #include "perf.h"
 
-struct mongodb_config *
-mongodb_config_create(char *sensor_name, char *uri, char *database, char *collection)
-{
-    struct mongodb_config *config = malloc(sizeof(struct mongodb_config));
-
-    if (!config)
-        return NULL;
-
-    config->sensor_name = sensor_name;
-    config->uri = uri;
-    config->database_name = database;
-    config->collection_name = collection;
-
-    return config;
-}
-
-void
-mongodb_config_destroy(struct mongodb_config *config)
-{
-    if (!config)
-        return;
-
-    free(config);
-}
-
 static struct mongodb_context *
-mongodb_context_create(struct mongodb_config *config)
+mongodb_context_create(const char *sensor_name, const char *uri, const char *database, const char *collection)
 {
     struct mongodb_context *ctx = malloc(sizeof(struct mongodb_context));
 
     if (!ctx)
         return NULL;
 
-    ctx->config = config;
+    ctx->config.sensor_name = sensor_name;
+    ctx->config.uri = uri;
+    ctx->config.database_name = database;
+    ctx->config.collection_name = collection;
+
     ctx->client = NULL;
     ctx->collection = NULL;
 
@@ -81,7 +60,7 @@ mongodb_initialize(struct storage_module *module)
 
     mongoc_init();
 
-    ctx->uri = mongoc_uri_new_with_error(ctx->config->uri, &error);
+    ctx->uri = mongoc_uri_new_with_error(ctx->config.uri, &error);
     if (!ctx->uri) {
         zsys_error("mongodb: failed to parse uri: %s", error.message);
         goto error;
@@ -93,7 +72,7 @@ mongodb_initialize(struct storage_module *module)
         goto error;
     }
 
-    ctx->collection = mongoc_client_get_collection(ctx->client, ctx->config->database_name, ctx->config->collection_name);
+    ctx->collection = mongoc_client_get_collection(ctx->client, ctx->config.database_name, ctx->config.collection_name);
     /* collection is automatically created if non-existent */
 
     module->is_initialized = true;
@@ -163,7 +142,7 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
      * }
      */
     BSON_APPEND_DATE_TIME(&document, "timestamp", payload->timestamp);
-    BSON_APPEND_UTF8(&document, "sensor", ctx->config->sensor_name);
+    BSON_APPEND_UTF8(&document, "sensor", ctx->config.sensor_name);
     BSON_APPEND_UTF8(&document, "target", payload->target_name);
 
     for (group_data = zhashx_first(payload->groups); group_data; group_data = zhashx_next(payload->groups)) {
@@ -218,17 +197,28 @@ mongodb_deinitialize(struct storage_module *module __attribute__ ((unused)))
     return 0;
 }
 
-struct storage_module *
-mongodb_create(struct mongodb_config *config)
+static void
+mongodb_destroy(struct storage_module *module)
 {
-    struct storage_module *module = storage_module_create();
-    struct mongodb_context *ctx = mongodb_context_create(config);
+    if (!module)
+        return;
 
-    if (!module || !ctx) {
-        storage_module_destroy(module);
-        mongodb_context_destroy(ctx);
-        return NULL;
-    }
+    mongodb_context_destroy(module->context);
+}
+
+struct storage_module *
+mongodb_create(const char *sensor_name, const char *uri, const char *database, const char *collection)
+{
+    struct storage_module *module = NULL;
+    struct mongodb_context *ctx = NULL;
+
+    module = storage_module_create();
+    if (!module)
+        goto error;
+
+    ctx = mongodb_context_create(sensor_name, uri, database, collection);
+    if (!ctx)
+        goto error;
 
     module->type = STORAGE_MONGODB;
     module->context = ctx;
@@ -237,17 +227,13 @@ mongodb_create(struct mongodb_config *config)
     module->ping = mongodb_ping;
     module->store_report = mongodb_store_report;
     module->deinitialize = mongodb_deinitialize;
+    module->destroy = mongodb_destroy;
 
     return module;
-}
 
-void
-mongodb_destroy(struct storage_module *module)
-{
-    if (!module)
-        return;
-
-    mongodb_context_destroy(module->context);
+error:
+    mongodb_context_destroy(ctx);
     storage_module_destroy(module);
+    return NULL;
 }
 

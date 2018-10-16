@@ -28,8 +28,12 @@
 #include "cgroups.h"
 #include "perf.h"
 #include "report.h"
+#include "storage.h"
 #include "csv.h"
+
+#ifdef HAVE_MONGODB
 #include "mongodb.h"
+#endif
 
 void
 usage()
@@ -38,10 +42,27 @@ usage()
             "\t-c | -s EVENT_GROUP_NAME [-o] -e EVENT_NAME\n"
             "\t-r csv | mongodb\n"
             "\t  CSV: -O OUTPUT_DIR\n"
-            "\t  MongoDB: -U MONGODB_URI -D MONGODB_DATABASE -C MONGODB_COLLECTION\n");
+            "\t  MongoDB: -U MONGODB_URI -D MONGODB_DATABASE -C MONGODB_COLLECTION\n"
+    );
 }
 
-void
+static struct storage_module *
+setup_storage_module(enum storage_type type, char *sensor_name, char *Uflag, char *Dflag __attribute__((unused)), char *Cflag __attribute__((unused)))
+{
+    switch (type)
+    {
+        case STORAGE_CSV:
+            return csv_create(sensor_name, Uflag);
+#ifdef HAVE_MONGODB
+        case STORAGE_MONGODB:
+            return mongodb_create(sensor_name, Uflag, Dflag, Cflag);
+#endif
+        default:
+            return NULL;
+    }
+}
+
+static void
 sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events_groups, char *cgroup_basepath, zhashx_t *container_monitoring_actors)
 {
     zhashx_t *cgroups_running = NULL;
@@ -93,17 +114,12 @@ main (int argc, char **argv)
     zhashx_t *container_events_groups = NULL; /* char *group_name -> struct events_group *group */
     struct events_group *current_events_group = NULL;
     char *sensor_name = NULL;
-    char *storage_type = "csv";
-    char *csv_output_dir = NULL;
-    char *mongodb_uri = NULL;
-    char *mongodb_database = NULL;
-    char *mongodb_collection = NULL;
+    enum storage_type storage_type = STORAGE_CSV; /* use csv storage module by default */
+    char *Uflag = NULL;
+    char *Dflag = NULL;
+    char *Cflag = NULL;
     struct pmu_info *pmu = NULL;
     struct hwinfo *hwinfo = NULL;
-    struct csv_config *csv_conf = NULL;
-    struct storage_module *csv_storage = NULL;
-    struct mongodb_config *mongodb_conf = NULL;
-    struct storage_module *mongodb_storage = NULL;
     struct storage_module *storage = NULL;
     struct report_config reporting_conf = {0};
     zactor_t *reporting = NULL;
@@ -156,7 +172,7 @@ main (int argc, char **argv)
     zhashx_set_destructor(container_events_groups, (zhashx_destructor_fn *) events_group_destroy);
 
     /* parse cli arguments */
-    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:or:O:U:D:C:")) != -1) {
+    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:or:U:D:C:")) != -1) {
         switch (c)
         {
             case 'v':
@@ -183,7 +199,7 @@ main (int argc, char **argv)
             case 's':
                 current_events_group = events_group_create(optarg);
                 if (!current_events_group) {
-                    zsys_error("sensor: failed to create the '%s' system group", optarg);
+                    zsys_error("args: failed to create the '%s' system group", optarg);
                     goto cleanup;
                 }
                 zhashx_insert(system_events_groups, optarg, current_events_group);
@@ -193,7 +209,7 @@ main (int argc, char **argv)
             case 'c':
                 current_events_group = events_group_create(optarg);
                 if (!current_events_group) {
-                    zsys_error("sensor: failed to create the '%s' container group", optarg);
+                    zsys_error("args: failed to create the '%s' container group", optarg);
                     goto cleanup;
                 }
                 zhashx_insert(container_events_groups, optarg, current_events_group);
@@ -212,25 +228,26 @@ main (int argc, char **argv)
                 break;
             case 'o':
                 if (!current_events_group) {
-                    zsys_error("events: you cannot set the type of an inexisting events group");
+                    zsys_error("args: you cannot set the type of an inexistent events group");
                     goto cleanup;
                 }
                 current_events_group->type = MONITOR_ONE_CPU_PER_SOCKET;
                 break;
             case 'r':
-                storage_type = optarg;
-                break;
-            case 'O':
-                csv_output_dir = optarg;
+                storage_type = storage_module_get_type(optarg);
+                if (storage_type == STORAGE_UNKNOWN) {
+                    zsys_error("args: storage module '%s' is invalid or disabled at compile time", optarg);
+                    goto cleanup;
+                }
                 break;
             case 'U':
-                mongodb_uri = optarg;
+                Uflag = optarg;
                 break;
             case 'D':
-                mongodb_database = optarg;
+                Dflag = optarg;
                 break;
             case 'C':
-                mongodb_collection = optarg;
+                Cflag = optarg;
                 break;
             default:
                 usage();
@@ -244,19 +261,27 @@ main (int argc, char **argv)
         goto cleanup;
     }
 
+    if (!sensor_name) {
+        zsys_error("args: you must provide a sensor name");
+        goto cleanup;
+    }
+
     if (zhashx_size(system_events_groups) == 0 && zhashx_size(container_events_groups) == 0) {
         zsys_error("args: you must provide event(s) to monitor");
         goto cleanup;
     }
 
-    if (strstr(storage_type, "csv") && (!csv_output_dir)) {
+    if (storage_type == STORAGE_CSV && (!Uflag)) {
         zsys_error("args: you must provide the required CSV storage module configuration");
         goto cleanup;
     }
-    if (strstr(storage_type, "mongodb") && (!mongodb_uri || !mongodb_database || !mongodb_collection)) {
+
+#ifdef HAVE_MONGODB
+    if (storage_type == STORAGE_MONGODB && (!Uflag || !Dflag || !Cflag)) {
         zsys_error("args: you must provide the required MongoDB storage module configuration");
         goto cleanup;
     }
+#endif
 
     zsys_info("sensor: starting...");
 
@@ -292,24 +317,9 @@ main (int argc, char **argv)
     }
 
     /* setup storage module */
-    if (strstr(storage_type, "csv")) {
-        csv_conf = csv_config_create(sensor_name, csv_output_dir);
-        if (!csv_conf) {
-            zsys_error("sensor: failed to create CSV config");
-            goto cleanup;
-        }
-        storage = csv_storage = csv_create(csv_conf);
-    }
-    if (strstr(storage_type, "mongodb")) {
-        mongodb_conf = mongodb_config_create(sensor_name, mongodb_uri, mongodb_database, mongodb_collection);
-        if (!mongodb_conf) {
-            zsys_error("sensor: failed to create MongoDB config");
-            goto cleanup;
-        }
-        storage = mongodb_storage = mongodb_create(mongodb_conf);
-    }
+    storage = setup_storage_module(storage_type, sensor_name, Uflag, Dflag, Cflag);
     if (!storage) {
-        zsys_error("sensor: failed to create storage module");
+        zsys_error("sensor: failed to create %s storage module", storage_type);
         goto cleanup;
     }
     if (STORAGE_MODULE_CALL(storage, initialize)) {
@@ -362,10 +372,7 @@ cleanup:
     zhashx_destroy(&container_monitoring_actors);
     zactor_destroy(&system_perf_monitor);
     zactor_destroy(&reporting);
-    csv_destroy(csv_storage);
-    csv_config_destroy(csv_conf);
-    mongodb_destroy(mongodb_storage);
-    mongodb_config_destroy(mongodb_conf);
+    storage_module_destroy(storage);
     zsock_destroy(&ticker);
     zhashx_destroy(&system_events_groups);
     zhashx_destroy(&container_events_groups);

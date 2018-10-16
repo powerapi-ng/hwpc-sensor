@@ -22,29 +22,6 @@
 #include "csv.h"
 #include "storage.h"
 
-struct csv_config *
-csv_config_create(char *sensor_name, char *output_dir)
-{
-    struct csv_config *config = malloc(sizeof(struct csv_config));
-
-    if (!config)
-        return NULL;
-
-    config->sensor_name = sensor_name;
-    config->output_dir = output_dir;
-
-    return config;
-}
-
-void
-csv_config_destroy(struct csv_config *config)
-{
-    if (!config)
-        return;
-
-    free(config);
-}
-
 static void
 group_fd_destroy(FILE **fd_ptr)
 {
@@ -57,14 +34,15 @@ group_fd_destroy(FILE **fd_ptr)
 }
 
 static struct csv_context *
-csv_context_create(struct csv_config *config)
+csv_context_create(const char *sensor_name, const char *output_dir)
 {
     struct csv_context *ctx = malloc(sizeof(struct csv_context));
 
     if (!ctx)
         return NULL;
 
-    ctx->config = config;
+    ctx->config.output_dir = output_dir;
+    ctx->config.sensor_name = sensor_name;
 
     ctx->groups_fd = zhashx_new();
     zhashx_set_destructor(ctx->groups_fd, (zhashx_destructor_fn *) group_fd_destroy);
@@ -94,7 +72,7 @@ csv_initialize(struct storage_module *module)
 
     /* create output directory */
     errno = 0;
-    if (mkdir(ctx->config->output_dir, 0755) == -1) {
+    if (mkdir(ctx->config.output_dir, 0755) == -1) {
         /* ignore if directory already exists */
         if (errno != EEXIST) {
             zsys_error("csv: failed to create output directory: %s", strerror(errno));
@@ -104,7 +82,7 @@ csv_initialize(struct storage_module *module)
 
     /* check if directory exists, above EEXIST check DO NOT guarantee that path is a directory */
     errno = 0;
-    if (stat(ctx->config->output_dir, &outdir_stat) == -1) {
+    if (stat(ctx->config.output_dir, &outdir_stat) == -1) {
         zsys_error("csv: failed to check output dir: %s", strerror(errno));
         return -1;
     }
@@ -128,7 +106,7 @@ csv_ping(struct storage_module *module)
     int r;
 
     /* test path buffer length */
-    r = snprintf(path_buffer, CSV_PATH_BUFFER_SIZE, "%s/%s", ctx->config->output_dir, ping_filename);
+    r = snprintf(path_buffer, CSV_PATH_BUFFER_SIZE, "%s/%s", ctx->config.output_dir, ping_filename);
     if (r < 0 || r > CSV_PATH_BUFFER_SIZE) {
         zsys_error("csv: the test file path exceed the maximum length (%d)", CSV_PATH_BUFFER_SIZE);
         return -1;
@@ -221,7 +199,7 @@ open_group_outfile(struct csv_context *ctx, const char *group_name)
     FILE *group_fd = NULL;
 
     /* construct group output file path */
-    r = snprintf(path_buffer, CSV_PATH_BUFFER_SIZE, "%s/%s", ctx->config->output_dir, group_name);
+    r = snprintf(path_buffer, CSV_PATH_BUFFER_SIZE, "%s/%s", ctx->config.output_dir, group_name);
     if (r < 0 || r > CSV_PATH_BUFFER_SIZE) {
         zsys_error("csv: failed to build path for group=%s", group_name);
         return -1;
@@ -262,7 +240,7 @@ write_events_value(struct csv_context *ctx, const char *group, FILE *fd, uint64_
     }
 
     /* write static elements to buffer */
-    r = snprintf(buffer, CSV_LINE_BUFFER_SIZE, "%" PRIu64 ",%s,%s,%s,%s", timestamp, ctx->config->sensor_name, target, socket, cpu);
+    r = snprintf(buffer, CSV_LINE_BUFFER_SIZE, "%" PRIu64 ",%s,%s,%s,%s", timestamp, ctx->config.sensor_name, target, socket, cpu);
     if (r < 0 || r > CSV_LINE_BUFFER_SIZE) {
         return -1;
     }
@@ -352,17 +330,28 @@ csv_deinitialize(struct storage_module *module)
     return 0;
 }
 
-struct storage_module *
-csv_create(struct csv_config *config)
+static void
+csv_destroy(struct storage_module *module)
 {
-    struct storage_module *module = storage_module_create();
-    struct csv_context *ctx = csv_context_create(config);
+    if (!module)
+        return;
 
-    if (!module || !ctx) {
-        storage_module_destroy(module);
-        csv_context_destroy(ctx);
-        return NULL;
-    }
+    csv_context_destroy(module->context);
+}
+
+struct storage_module *
+csv_create(const char *sensor_name, const char *output_dir)
+{
+    struct storage_module *module = NULL;
+    struct csv_context *ctx = NULL;
+
+    module = storage_module_create();
+    if (!module)
+        goto error;
+
+    ctx = csv_context_create(sensor_name, output_dir);
+    if (!ctx)
+        goto error;
 
     module->type = STORAGE_CSV;
     module->context = ctx;
@@ -371,17 +360,13 @@ csv_create(struct csv_config *config)
     module->ping = csv_ping;
     module->store_report = csv_store_report;
     module->deinitialize = csv_deinitialize;
+    module->destroy = csv_destroy;
 
     return module;
-}
 
-void
-csv_destroy(struct storage_module *module)
-{
-    if (!module)
-        return;
-
-    csv_context_destroy(module->context);
+error:
+    csv_context_destroy(ctx);
     storage_module_destroy(module);
+    return NULL;
 }
 
