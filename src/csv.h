@@ -35,8 +35,8 @@
  */
 struct csv_config
 {
-    char *sensor_name;
-    char *output_dir;
+    const char *sensor_name;
+    const char *output_dir;
 };
 
 /*
@@ -44,30 +44,15 @@ struct csv_config
  */
 struct csv_context
 {
-    struct csv_config *config;
+    struct csv_config config;
     zhashx_t *groups_fd; /* char *group_name -> FILE *fd */
     zhashx_t *groups_events; /* char *group_name -> zlistx_t *group_events */
 };
 
 /*
- * csv_config_create allocate and set the config struct for the csv module.
+ * csv_create creates and configure a csv storage module..
  */
-struct csv_config *csv_config_create(char *sensor_name, char *output_dir);
-
-/*
- * csv_config_destroy free the allocated resources for the config struct of the csv module.
- */
-void csv_config_destroy(struct csv_config *config);
-
-/*
- * csv_create allocate the ressources needed for the module.
- */
-struct storage_module *csv_create(struct csv_config *config);
-
-/*
- * csv_destroy free the allocated ressources of the module.
- */
-void csv_destroy(struct storage_module *module);
+struct storage_module *csv_create(const char *sensor_name, const char *output_dir);
 
 #endif /* CSV_H */
 
