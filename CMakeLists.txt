@@ -17,7 +17,7 @@ pkg_check_modules(CGROUP REQUIRED libcgroup)
 set(SENSOR_SOURCES
     src/config.h
     src/util.h src/util.c
-    src/docker.h src/docker.c
+    src/target.h src/target.c
     src/pmu.h src/pmu.c
     src/events.h src/events.c
     src/hwinfo.h src/hwinfo.c
