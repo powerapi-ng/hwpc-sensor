@@ -36,21 +36,34 @@ enum target_type
 };
 
 /*
+ * target_types_name stores the name (as string) of the supported target types.
+ */
+const char *target_types_name[] = {
+    [PERF_TARGET_UNKNOWN] = "unknown",
+    [PERF_TARGET_SYSTEM] = "system",
+    [PERF_TARGET_DOCKER] = "docker",
+    [PERF_TARGET_LIBVIRT] = "libvirt"
+};
+
+/*
  * target stores various information about the target.
  */
 struct target
 {
     char *cgroup_path;
-    char *cgroup_name;
     enum target_type type;
-    char *name;
 };
 
 /*
  * target_create allocate the resources and configure the target.
- * The cgroup_path parameter can be set to NULL for a "System" target..
+ * Set cgroup_path to NULL to create a system target.
  */
-struct target *target_create(const char *cgroup_name, const char *cgroup_path);
+struct target *target_create(const char *cgroup_path);
+
+/*
+ * target_resolve_real_name resolve and return the real name of the given target.
+ */
+char *target_resolve_real_name(struct target *target);
 
 /*
  * target_destroy free the allocated resources for the target.

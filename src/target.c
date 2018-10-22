@@ -43,8 +43,21 @@ detect_target_type(const char *cgroup_path)
 
     return PERF_TARGET_UNKNOWN;
 }
+struct target *
+target_create(const char *cgroup_path)
+{
+    struct target *target = malloc(sizeof(struct target));
 
-char *
+    if (!target)
+        return NULL;
+
+    target->cgroup_path = (cgroup_path) ? strdup(cgroup_path) : NULL;
+    target->type = detect_target_type(cgroup_path);
+
+    return target;
+}
+
+static char *
 get_docker_container_name_from_id(const char *full_id)
 {
     char config_path[DOCKER_CONFIG_PATH_BUFFER_SIZE];
@@ -53,7 +66,7 @@ get_docker_container_name_from_id(const char *full_id)
     char *line = NULL;
     size_t len = 0;
     regex_t re = {0};
-    const char *expr = "\"Name\":\"/([a-zA-Z0-9][a-zA-Z0-9_.-]+)\"";
+    const char *expr = "\"Name\":\"/([a-zA-Z0-9][a-zA-Z0-9_.-]+)\""; /* extract container name from json */
     const size_t num_matches = 2;
     regmatch_t matches[num_matches];
     char *container_name = NULL;
@@ -80,44 +93,26 @@ get_docker_container_name_from_id(const char *full_id)
     return container_name;
 }
 
-static char *
-resolve_target_name(enum target_type type, const char *cgroup_name)
+char *
+target_resolve_real_name(struct target *target)
 {
+    const char *cgroup_name = strrchr(target->cgroup_path, '/') + 1; /* extract basename */
     char *target_name = NULL;
 
-    switch (type)
+    switch (target->type)
     {
         case PERF_TARGET_DOCKER:
             target_name = get_docker_container_name_from_id(cgroup_name);
             break;
 
-        case PERF_TARGET_SYSTEM:
         case PERF_TARGET_LIBVIRT:
+        case PERF_TARGET_SYSTEM:
         default:
-            /* noop */
+            target_name = strdup(cgroup_name);
             break;
     }
 
-    if (!target_name)
-        target_name = strdup(cgroup_name);
-
     return target_name;
-}
-
-struct target *
-target_create(const char *cgroup_name, const char *cgroup_path)
-{
-    struct target *target = malloc(sizeof(struct target));
-    
-    if (!target)
-        return NULL;
-
-    target->cgroup_path = (cgroup_path) ? strdup(cgroup_path) : NULL;
-    target->cgroup_name = strdup(cgroup_name);
-    target->type = detect_target_type(cgroup_path);
-    target->name = resolve_target_name(target->type, cgroup_name);
-
-    return target;
 }
 
 void
@@ -127,8 +122,6 @@ target_destroy(struct target *target)
         return;
 
     free(target->cgroup_path);
-    free(target->cgroup_name);
-    free(target->name);
     free(target);
 }
 
