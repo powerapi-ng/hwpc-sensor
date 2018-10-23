@@ -22,6 +22,13 @@
 
 #include "target.h"
 
+const char *target_types_name[] = {
+    [PERF_TARGET_UNKNOWN] = "unknown",
+    [PERF_TARGET_SYSTEM] = "system",
+    [PERF_TARGET_DOCKER] = "docker",
+    [PERF_TARGET_LIBVIRT] = "libvirt"
+};
+
 static enum target_type
 detect_target_type(const char *cgroup_path)
 {
@@ -58,7 +65,7 @@ target_create(const char *cgroup_path)
 }
 
 static char *
-get_docker_container_name_from_id(const char *full_id)
+get_docker_container_name_from_id(const char *container_id)
 {
     char config_path[DOCKER_CONFIG_PATH_BUFFER_SIZE];
     int r;
@@ -71,7 +78,7 @@ get_docker_container_name_from_id(const char *full_id)
     regmatch_t matches[num_matches];
     char *container_name = NULL;
 
-    r = snprintf(config_path, DOCKER_CONFIG_PATH_BUFFER_SIZE, "/var/lib/docker/containers/%s/config.v2.json", full_id);
+    r = snprintf(config_path, DOCKER_CONFIG_PATH_BUFFER_SIZE, "/var/lib/docker/containers/%s/config.v2.json", container_id);
     if (r < 0 || r > DOCKER_CONFIG_PATH_BUFFER_SIZE)
         return NULL;
 
@@ -96,8 +103,12 @@ get_docker_container_name_from_id(const char *full_id)
 char *
 target_resolve_real_name(struct target *target)
 {
-    const char *cgroup_name = strrchr(target->cgroup_path, '/') + 1; /* extract basename */
+    const char *cgroup_name = NULL;
     char *target_name = NULL;
+
+    /* extract basename from cgroup path */
+    if (target->cgroup_path)
+        cgroup_name = strrchr(target->cgroup_path, '/') + 1;
 
     switch (target->type)
     {
@@ -105,8 +116,11 @@ target_resolve_real_name(struct target *target)
             target_name = get_docker_container_name_from_id(cgroup_name);
             break;
 
-        case PERF_TARGET_LIBVIRT:
         case PERF_TARGET_SYSTEM:
+            target_name = strdup(target_types_name[PERF_TARGET_SYSTEM]);
+            break;
+
+        case PERF_TARGET_LIBVIRT:
         default:
             target_name = strdup(cgroup_name);
             break;

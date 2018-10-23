@@ -38,12 +38,7 @@ enum target_type
 /*
  * target_types_name stores the name (as string) of the supported target types.
  */
-const char *target_types_name[] = {
-    [PERF_TARGET_UNKNOWN] = "unknown",
-    [PERF_TARGET_SYSTEM] = "system",
-    [PERF_TARGET_DOCKER] = "docker",
-    [PERF_TARGET_LIBVIRT] = "libvirt"
-};
+extern const char *target_types_name[];
 
 /*
  * target stores various information about the target.
