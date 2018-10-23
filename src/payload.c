@@ -98,7 +98,7 @@ payload_group_data_destroy(struct payload_group_data **data_ptr)
 }
 
 struct payload *
-payload_create(uint64_t timestamp, char *target_name)
+payload_create(uint64_t timestamp, const char *target_name)
 {
     struct payload *payload = malloc(sizeof(struct payload));
 
@@ -106,7 +106,7 @@ payload_create(uint64_t timestamp, char *target_name)
         return NULL;
 
     payload->timestamp = timestamp;
-    payload->target_name = target_name;
+    payload->target_name = strdup(target_name);
     payload->groups = zhashx_new();
     zhashx_set_destructor(payload->groups, (zhashx_destructor_fn *) payload_group_data_destroy);
 
@@ -119,6 +119,7 @@ payload_destroy(struct payload *payload)
     if (!payload)
         return;
 
+    free(payload->target_name);
     zhashx_destroy(&payload->groups);
     free(payload);
 }
