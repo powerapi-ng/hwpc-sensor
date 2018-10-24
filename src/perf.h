@@ -63,6 +63,7 @@ struct perf_group_context
 struct perf_context
 {
     struct perf_config *config;
+    const char *target_name;
     bool terminated;
     zsock_t *pipe;
     zsock_t *ticker;
