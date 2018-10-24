@@ -64,9 +64,16 @@ target_create(const char *cgroup_path)
     return target;
 }
 
-static char *
-get_docker_container_name_from_id(const char *container_id)
+static inline const char *
+extract_cgroup_name_from_path(const char *cgroup_path)
 {
+    return strrchr(cgroup_path, '/') + 1;
+}
+
+static char *
+get_docker_container_name_from_id(const char *cgroup_path)
+{
+    const char *container_id = extract_cgroup_name_from_path(cgroup_path);
     char config_path[DOCKER_CONFIG_PATH_BUFFER_SIZE];
     int r;
     FILE *stream = NULL;
@@ -103,17 +110,12 @@ get_docker_container_name_from_id(const char *container_id)
 char *
 target_resolve_real_name(struct target *target)
 {
-    const char *cgroup_name = NULL;
     char *target_name = NULL;
-
-    /* extract basename from cgroup path */
-    if (target->cgroup_path)
-        cgroup_name = strrchr(target->cgroup_path, '/') + 1;
 
     switch (target->type)
     {
         case PERF_TARGET_DOCKER:
-            target_name = get_docker_container_name_from_id(cgroup_name);
+            target_name = get_docker_container_name_from_id(target->cgroup_path);
             break;
 
         case PERF_TARGET_SYSTEM:
@@ -122,7 +124,7 @@ target_resolve_real_name(struct target *target)
 
         case PERF_TARGET_LIBVIRT:
         default:
-            target_name = strdup(cgroup_name);
+            target_name = strdup(extract_cgroup_name_from_path(target->cgroup_path));;
             break;
     }
 
