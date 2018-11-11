@@ -19,20 +19,8 @@
 #define PERF_H
 
 #include <czmq.h>
-#include "config.h"
 #include "hwinfo.h"
 #include "events.h"
-
-/*
- * perf_target_type stores the supported target types by the module.
- */
-enum perf_target_type
-{
-    PERF_TARGET_SYSTEM,
-    PERF_TARGET_DOCKER,
-    PERF_TARGET_LIBVIRT,
-    PERF_TARGET_UNKNOWN
-};
 
 /*
  * perf_config stores the configuration of a perf actor.
@@ -41,10 +29,7 @@ struct perf_config
 {
     struct hwinfo *hwinfo;
     zhashx_t *events_groups; /* char *group_name -> struct events_group *group_config */
-    char *cgroup_name;
-    char *cgroup_path;
-    enum perf_target_type target_type;
-    char *target_name;
+    struct target *target;
 };
 
 /*
@@ -78,6 +63,7 @@ struct perf_group_context
 struct perf_context
 {
     struct perf_config *config;
+    const char *target_name;
     bool terminated;
     zsock_t *pipe;
     zsock_t *ticker;
@@ -107,7 +93,7 @@ struct perf_read_format {
 /*
  * perf_config_create allocate and configure a perf configuration structure.
  */
-struct perf_config *perf_config_create(struct hwinfo *hwinfo, zhashx_t *events_groups, const char *cgroup_name, const char *cgroup_path);
+struct perf_config *perf_config_create(struct hwinfo *hwinfo, zhashx_t *events_groups, struct target *target);
 
 /*
  * perf_config_destroy free the resources allocated for the perf configuration structure.

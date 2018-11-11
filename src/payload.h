@@ -57,7 +57,7 @@ struct payload
 /*
  * payload_create allocate the required resources of a monitoring payload.
  */
-struct payload *payload_create(uint64_t timestamp, char *target_name);
+struct payload *payload_create(uint64_t timestamp, const char *target_name);
 
 /*
  * payload_destroy free the allocated resources of the monitoring payload.

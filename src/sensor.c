@@ -28,6 +28,7 @@
 #include "cgroups.h"
 #include "perf.h"
 #include "report.h"
+#include "target.h"
 #include "storage.h"
 #include "csv.h"
 
@@ -40,9 +41,7 @@ usage()
 {
     fprintf(stderr, "usage: smartwatts-sensor [-v] [-f FREQUENCY] [-p CGROUP_PATH] -n SENSOR_NAME\n"
             "\t-c | -s EVENT_GROUP_NAME [-o] -e EVENT_NAME\n"
-            "\t-r csv | mongodb\n"
-            "\t  CSV: -O OUTPUT_DIR\n"
-            "\t  MongoDB: -U MONGODB_URI -D MONGODB_DATABASE -C MONGODB_COLLECTION\n"
+            "\t-r STORAGE_MODULE -U STORAGE_URL [-D STORAGE_D] [-C STORAGE_C]\n"
     );
 }
 
@@ -69,6 +68,7 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     zactor_t *perf_monitor = NULL;
     const char *cgroup_path = NULL;
     const char *cgroup_name = NULL;
+    struct target *target = NULL;
     struct perf_config *monitor_config = NULL;
 
     /* to store running cgroups name and absolute path */
@@ -91,7 +91,8 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     for (cgroup_path = zhashx_first(cgroups_running); cgroup_path; cgroup_path = zhashx_next(cgroups_running)) {
         cgroup_name = zhashx_cursor(cgroups_running);
         if (!zhashx_lookup(container_monitoring_actors, cgroup_name)) {
-            monitor_config = perf_config_create(hwinfo, container_events_groups, cgroup_name, cgroup_path);
+            target = target_create(cgroup_path);
+            monitor_config = perf_config_create(hwinfo, container_events_groups, target);
             perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
             zhashx_insert(container_monitoring_actors, cgroup_name, perf_monitor);
         }
@@ -125,9 +126,10 @@ main (int argc, char **argv)
     zactor_t *reporting = NULL;
     zhashx_t *cgroups_running = NULL; /* char *cgroup_name -> char *cgroup_absolute_path */
     zhashx_t *container_monitoring_actors = NULL; /* char *actor_name -> zactor_t *actor */
-    zactor_t *system_perf_monitor = NULL;
     zsock_t *ticker = NULL;
-    struct perf_config *monitor_config = NULL;
+    struct target *system_target = NULL;
+    struct perf_config *system_monitor_config = NULL;
+    zactor_t *system_perf_monitor = NULL;
 
     if (!zsys_init()) {
         fprintf(stderr, "czmq: failed to initialize zsys context\n");
@@ -343,8 +345,9 @@ main (int argc, char **argv)
 
     /* start system monitoring actor only when needed */
     if (zhashx_size(system_events_groups)) {
-        monitor_config = perf_config_create(hwinfo, system_events_groups, "system", NULL);
-        system_perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
+        system_target = target_create(NULL);
+        system_monitor_config = perf_config_create(hwinfo, system_events_groups, system_target);
+        system_perf_monitor = zactor_new(perf_monitoring_actor, system_monitor_config);
     }
 
     /* monitor running containers */
