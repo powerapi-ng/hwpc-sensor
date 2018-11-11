@@ -24,32 +24,44 @@
 
 const char *target_types_name[] = {
     [PERF_TARGET_UNKNOWN] = "unknown",
+    [PERF_TARGET_ALL] = "all",
     [PERF_TARGET_SYSTEM] = "system",
+    [PERF_TARGET_KERNEL] = "kernel",
     [PERF_TARGET_DOCKER] = "docker",
+    [PERF_TARGET_KUBERNETES] = "k8s",
     [PERF_TARGET_LIBVIRT] = "libvirt"
 };
 
 static enum target_type
 detect_target_type(const char *cgroup_path)
 {
-    /* System (not a cgroup) */
+    /* All running processes/threads (not a cgroup) */
     if (!cgroup_path)
+        return PERF_TARGET_ALL;
+
+    /* System (running processes/threads in system cgroup) */
+    if (strstr(cgroup_path, "perf_event/system"))
         return PERF_TARGET_SYSTEM;
 
-    /* Docker */
-    if (strstr(cgroup_path, "/sys/fs/cgroup/perf_event/docker"))
+    /* Kernel (running processes/threads in kernel cgroup) */
+    if (strstr(cgroup_path, "perf_event/kernel"))
+        return PERF_TARGET_KERNEL;
+
+    /* Docker (running containers) */
+    if (strstr(cgroup_path, "perf_event/docker"))
         return PERF_TARGET_DOCKER;
 
-    /* Kubernetes */
-    if (strstr(cgroup_path, "/sys/fs/cgroup/perf_event/kubepods"))
-        return PERF_TARGET_DOCKER;
+    /* Kubernetes (running pods) */
+    if (strstr(cgroup_path, "perf_event/kubepods"))
+        return PERF_TARGET_KUBERNETES;
 
-    /* LibVirt */
-    if (strstr(cgroup_path, "/sys/fs/cgroup/perf_event/machine.slice"))
+    /* LibVirt (running virtual machine) */
+    if (strstr(cgroup_path, "perf_event/machine.slice"))
         return PERF_TARGET_LIBVIRT;
 
     return PERF_TARGET_UNKNOWN;
 }
+
 struct target *
 target_create(const char *cgroup_path)
 {
@@ -71,7 +83,7 @@ extract_cgroup_name_from_path(const char *cgroup_path)
 }
 
 static char *
-get_docker_container_name_from_id(const char *cgroup_path)
+get_docker_container_name(const char *cgroup_path)
 {
     const char *container_id = extract_cgroup_name_from_path(cgroup_path);
     char config_path[DOCKER_CONFIG_PATH_BUFFER_SIZE];
@@ -114,14 +126,17 @@ target_resolve_real_name(struct target *target)
 
     switch (target->type)
     {
+        case PERF_TARGET_ALL:
+            target_name = strdup(target_types_name[PERF_TARGET_ALL]);
+            break;
+
         case PERF_TARGET_DOCKER:
-            target_name = get_docker_container_name_from_id(target->cgroup_path);
+        case PERF_TARGET_KUBERNETES:
+            target_name = get_docker_container_name(target->cgroup_path);
             break;
 
         case PERF_TARGET_SYSTEM:
-            target_name = strdup(target_types_name[PERF_TARGET_SYSTEM]);
-            break;
-
+        case PERF_TARGET_KERNEL:
         case PERF_TARGET_LIBVIRT:
         default:
             target_name = strdup(extract_cgroup_name_from_path(target->cgroup_path));;
