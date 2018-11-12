@@ -16,41 +16,32 @@
  */
 
 #include <czmq.h>
-#include <libcgroup.h>
+#include <fts.h>
+#include <sys/stat.h>
 
 #include "cgroups.h"
 
 int
-cgroups_initialize()
+cgroups_get_running_subgroups(char * const base_path, zhashx_t *subgroups)
 {
-    return cgroup_init();
-}
+    char * const path[] = { base_path, NULL };
+    FTS *file_system = NULL;
+    FTSENT *node = NULL;
 
-int
-cgroups_get_running_subgroups(const char *controller, const char *base_path, zhashx_t *subgroups)
-{
-    int ret = -1;
-    void *handle = NULL;
-    struct cgroup_file_info info = {0};
-    int lvl;
-    char *container_id = NULL;
+    file_system = fts_open(path, FTS_LOGICAL | FTS_NOCHDIR, NULL);
+    if (!file_system)
+        return -1;
 
-    if (cgroup_walk_tree_begin(controller, base_path, 1, &handle, &info, &lvl) != 0) {
-        return ret;
+    for(node = fts_read(file_system); node; node = fts_read(file_system)) {
+        /*
+         * Filtering the directories having 2 links leading to them to only get leaves directories.
+         * The cgroup subsystems does not support symlinks, so this will always work.
+         */
+        if (node->fts_info == FTS_D && node->fts_statp->st_nlink == 2)
+            zhashx_insert(subgroups, node->fts_path, NULL);
     }
 
-    while ((ret = cgroup_walk_tree_next(0, &handle, &info, lvl)) == 0) {
-        if (info.type == CGROUP_FILE_TYPE_DIR) {
-            container_id = strrchr(info.full_path, '/') + 1;
-            zhashx_insert(subgroups, container_id, (char *) info.full_path);
-        }
-    }
-
-    if (ret == ECGEOF) {
-        ret = 0;
-    }
-
-    cgroup_walk_tree_end(&handle);
-    return ret;
+    fts_close(file_system);
+    return 0;
 }
 
