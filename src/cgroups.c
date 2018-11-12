@@ -27,6 +27,7 @@ cgroups_get_running_subgroups(char * const base_path, zhashx_t *subgroups)
     char * const path[] = { base_path, NULL };
     FTS *file_system = NULL;
     FTSENT *node = NULL;
+    bool placeholder = true;
 
     file_system = fts_open(path, FTS_LOGICAL | FTS_NOCHDIR, NULL);
     if (!file_system)
@@ -38,7 +39,8 @@ cgroups_get_running_subgroups(char * const base_path, zhashx_t *subgroups)
          * The cgroup subsystems does not support symlinks, so this will always work.
          */
         if (node->fts_info == FTS_D && node->fts_statp->st_nlink == 2)
-            zhashx_insert(subgroups, node->fts_path, NULL);
+            /* Use of a placeholder because item value is unused but must be non-NULL */
+            zhashx_insert(subgroups, node->fts_path, &placeholder);
     }
 
     fts_close(file_system);
