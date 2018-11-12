@@ -66,35 +66,33 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
 {
     zhashx_t *cgroups_running = NULL;
     zactor_t *perf_monitor = NULL;
+    const bool *cgroup_placeholder = NULL;
     const char *cgroup_path = NULL;
-    const char *cgroup_name = NULL;
     struct target *target = NULL;
     struct perf_config *monitor_config = NULL;
 
     /* to store running cgroups name and absolute path */
     cgroups_running = zhashx_new();
-    zhashx_set_duplicator(cgroups_running, (zhashx_duplicator_fn *) strdup);
-    zhashx_set_destructor(cgroups_running, (zhashx_destructor_fn *) zstr_free);
 
     /* get running container(s) */
     cgroups_get_running_subgroups(cgroup_basepath, cgroups_running);
 
     /* stop monitoring dead container(s) */
     for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
-        cgroup_name = zhashx_cursor(container_monitoring_actors);
-        if (!zhashx_lookup(cgroups_running, cgroup_name)) {
-            zhashx_delete(container_monitoring_actors, cgroup_name);
+        cgroup_path = zhashx_cursor(container_monitoring_actors);
+        if (!zhashx_lookup(cgroups_running, cgroup_path)) {
+            zhashx_delete(container_monitoring_actors, cgroup_path);
         }
     }
 
     /* start monitoring new container(s) */
-    for (cgroup_path = zhashx_first(cgroups_running); cgroup_path; cgroup_path = zhashx_next(cgroups_running)) {
-        cgroup_name = zhashx_cursor(cgroups_running);
-        if (!zhashx_lookup(container_monitoring_actors, cgroup_name)) {
+    for (cgroup_placeholder = zhashx_first(cgroups_running); cgroup_placeholder; cgroup_placeholder = zhashx_next(cgroups_running)) {
+        cgroup_path = zhashx_cursor(cgroups_running);
+        if (!zhashx_lookup(container_monitoring_actors, cgroup_path)) {
             target = target_create(cgroup_path);
             monitor_config = perf_config_create(hwinfo, container_events_groups, target);
             perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
-            zhashx_insert(container_monitoring_actors, cgroup_name, perf_monitor);
+            zhashx_insert(container_monitoring_actors, cgroup_path, perf_monitor);
         }
     }
 
