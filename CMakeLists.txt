@@ -12,7 +12,6 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_FORTIFY_SOURCE=2")
 find_package(PkgConfig)
 pkg_check_modules(CZMQ REQUIRED libczmq)
 #pkg_check_modules(PFM REQUIRED libpfm)
-pkg_check_modules(CGROUP REQUIRED libcgroup)
 
 set(SENSOR_SOURCES
     src/config.h
@@ -30,9 +29,9 @@ set(SENSOR_SOURCES
     src/sensor.c
 )
 
-set(SENSOR_INCLUDES "${CZMQ_INCLUDE_DIRS}" "${CGROUP_INCLUDE_DIRS}")
-set(SENSOR_DEFINITIONS "${CZMQ_DEFINITIONS}" "${CGROUP_DEFINITIONS}")
-set(SENSOR_LIBRARIES "${CZMQ_LIBRARIES}" "${CGROUP_LIBRARIES}" pfm)
+set(SENSOR_INCLUDES "${CZMQ_INCLUDE_DIRS}")
+set(SENSOR_DEFINITIONS "${CZMQ_DEFINITIONS}")
+set(SENSOR_LIBRARIES "${CZMQ_LIBRARIES}" pfm)
 
 if(WITH_MONGODB)
     pkg_check_modules(BSON REQUIRED libbson-1.0)
