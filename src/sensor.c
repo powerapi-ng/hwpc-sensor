@@ -77,7 +77,7 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     zhashx_set_destructor(cgroups_running, (zhashx_destructor_fn *) zstr_free);
 
     /* get running container(s) */
-    cgroups_get_running_subgroups("perf_event", cgroup_basepath, cgroups_running);
+    cgroups_get_running_subgroups(cgroup_basepath, cgroups_running);
 
     /* stop monitoring dead container(s) */
     for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
@@ -110,7 +110,7 @@ main (int argc, char **argv)
     char *frequency_endp = NULL;
     long frequency = 1000; /* in milliseconds */
     struct pmu_topology *sys_pmu_topology = NULL;
-    char *cgroup_basepath = "/docker";
+    char *cgroup_basepath = "/sys/fs/cgroup/perf_event";
     zhashx_t *system_events_groups = NULL; /* char *group_name -> struct events_group *group */
     zhashx_t *container_events_groups = NULL; /* char *group_name -> struct events_group *group */
     struct events_group *current_events_group = NULL;
@@ -148,12 +148,6 @@ main (int argc, char **argv)
     /* set scheduling priority of the program */
     if (setpriority(PRIO_PROCESS, 0, -20)) {
         zsys_error("priority: cannot set the process priority");
-        goto cleanup;
-    }
-
-    /* initialize the cgroups module */
-    if (cgroups_initialize()) {
-        zsys_error("cgroups: cannot initialize the cgroup module");
         goto cleanup;
     }
 
