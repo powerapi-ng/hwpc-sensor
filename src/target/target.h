@@ -18,6 +18,8 @@
 #ifndef TARGET_H
 #define TARGET_H
 
+#include <czmq.h>
+
 /*
  * DOCKER_CONFIG_PATH_BUFFER_SIZE stores the max length of the path to the container config file.
  * /var/lib/docker/containers/756535dc6e9ab9b560f84c85063f55952273a23192641fc2756aa9721d9d1000/config.v2.json = 106
@@ -25,17 +27,23 @@
 #define DOCKER_CONFIG_PATH_BUFFER_SIZE 128
 
 /*
+ * KUBERNETES_CGROUP_PATH_BUFFER_SIZE stores the max length of the cgroup path of a pod.
+ * /sys/fs/cgroup/perf_event/kubepods/besteffort/pod60cad6a8-e823-11e8-a4df-3cfdfe591a10/271a325fb10fe34d9c9b93a98a2d1fb0959ab52088622f03c109ce310d9f7dfc/kube-proxy = 161
+ */
+#define KUBERNETES_CGROUP_PATH_BUFFER_SIZE 256
+
+/*
  * target_type stores the supported target types.
  */
 enum target_type
 {
-    PERF_TARGET_UNKNOWN,
-    PERF_TARGET_ALL,
-    PERF_TARGET_SYSTEM,
-    PERF_TARGET_KERNEL,
-    PERF_TARGET_DOCKER,
-    PERF_TARGET_KUBERNETES,
-    PERF_TARGET_LIBVIRT
+    PERF_TARGET_UNKNOWN = 0,
+    PERF_TARGET_ALL = 1,
+    PERF_TARGET_SYSTEM = 2,
+    PERF_TARGET_KERNEL = 4,
+    PERF_TARGET_DOCKER = 8,
+    PERF_TARGET_KUBERNETES = 16,
+    PERF_TARGET_LIBVIRT = 32,
 };
 
 /*
@@ -50,6 +58,9 @@ struct target
 {
     char *cgroup_path;
     enum target_type type;
+
+    char (*resolve_name)(struct target *self);
+    void (*destroy)(struct target *self);
 };
 
 /*
@@ -67,6 +78,11 @@ char *target_resolve_real_name(struct target *target);
  * target_destroy free the allocated resources for the target.
  */
 void target_destroy(struct target *target);
+
+/*
+ * target_discover_running returns a list of running targets.
+ */
+void target_discover_running(enum target_type type_filter, zhashx_t *targets);
 
 #endif /* TARGET_H */
 

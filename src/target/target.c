@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <czmq.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,6 +120,29 @@ get_docker_container_name(const char *cgroup_path)
     return container_name;
 }
 
+static char *
+get_kubernetes_pod_name(const char *cgroup_path)
+{
+    char *pod_name = NULL;
+    char *resource_container_ptr = NULL;
+    char cgroup_path_buffer[KUBERNETES_CGROUP_PATH_BUFFER_SIZE];
+
+    /* try to get the pod name from the docker container */
+    pod_name = get_docker_container_name(cgroup_path);
+    if (!pod_name) {
+        /*
+         * If the above failed, the reason could be the use of a ResourceContainer. (like kube-proxy for example)
+         * In this case, we remove the resource container name from the path and try again.
+         */
+        resource_container_ptr = strrchr(cgroup_path, '/');
+        strncpy(cgroup_path_buffer, cgroup_path, resource_container_ptr - cgroup_path);
+        cgroup_path_buffer[resource_container_ptr - cgroup_path] = '\0';
+        pod_name = get_docker_container_name(cgroup_path_buffer);
+    }
+
+    return pod_name;
+}
+
 char *
 target_resolve_real_name(struct target *target)
 {
@@ -131,8 +155,11 @@ target_resolve_real_name(struct target *target)
             break;
 
         case PERF_TARGET_DOCKER:
-        case PERF_TARGET_KUBERNETES:
             target_name = get_docker_container_name(target->cgroup_path);
+            break;
+
+        case PERF_TARGET_KUBERNETES:
+            target_name = get_kubernetes_pod_name(target->cgroup_path);
             break;
 
         case PERF_TARGET_SYSTEM:
