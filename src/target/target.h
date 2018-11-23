@@ -25,14 +25,14 @@
  */
 enum target_type
 {
-    TARGET_TYPE_UNKNOWN = 0,
-    TARGET_TYPE_ALL = 1,
-    TARGET_TYPE_SYSTEM = 2,
-    TARGET_TYPE_KERNEL = 4,
-    TARGET_TYPE_DOCKER = 8,
-    TARGET_TYPE_KUBERNETES = 16,
-    TARGET_TYPE_LIBVIRT = 32,
-    TARGET_TYPE_EVERYTHING = 63
+    TARGET_TYPE_UNKNOWN = 1,
+    TARGET_TYPE_ALL = 2,
+    TARGET_TYPE_SYSTEM = 4,
+    TARGET_TYPE_KERNEL = 8,
+    TARGET_TYPE_DOCKER = 16,
+    TARGET_TYPE_KUBERNETES = 32,
+    TARGET_TYPE_LIBVIRT = 64,
+    TARGET_TYPE_EVERYTHING = 127
 };
 
 /*
@@ -55,15 +55,14 @@ struct target
 enum target_type target_detect_type(const char *cgroup_path);
 
 /*
+ * target_validate_type validate the target type of the given cgroup path.
+ */
+int target_validate_type(enum target_type type, const char *cgroup_path);
+
+/*
  * target_create allocate the resources and configure the target.
  */
 struct target *target_create(enum target_type type, const char *cgroup_path);
-
-/*
- * target_validate_type validate the detected type of the given target.
- * The target type is automatically detected at creation, but some targets may requires a more extensive verification.
- */
-int target_validate_type(struct target *target);
 
 /*
  * target_resolve_real_name resolve and return the real name of the given target.

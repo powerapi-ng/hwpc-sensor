@@ -67,6 +67,24 @@ target_detect_type(const char *cgroup_path)
     return TARGET_TYPE_UNKNOWN;
 }
 
+int
+target_validate_type(enum target_type type, const char *cgroup_path)
+{
+    switch (type) {
+        case TARGET_TYPE_DOCKER:
+            return target_docker_validate(cgroup_path);
+            break;
+
+        case TARGET_TYPE_KUBERNETES:
+            return target_kubernetes_validate(cgroup_path);
+            break;
+
+        default:
+            /* other types does not need a validation */
+            return true;
+    }
+}
+
 struct target *
 target_create(enum target_type type, const char *cgroup_path)
 {
@@ -79,24 +97,6 @@ target_create(enum target_type type, const char *cgroup_path)
     target->type = type;
 
     return target;
-}
-
-int
-target_validate_type(struct target *target)
-{
-    switch (target->type) {
-        case TARGET_TYPE_DOCKER:
-            return target_kubernetes_validate(target->cgroup_path);
-            break;
-
-        case TARGET_TYPE_KUBERNETES:
-            return target_kubernetes_validate(target->cgroup_path);
-            break;
-
-        default:
-            /* other types does not need a validation */
-            return true;
-    }
 }
 
 char *
@@ -153,9 +153,8 @@ target_discover_running(char *base_path, enum target_type type_mask, zhashx_t *t
          * The cgroup subsystems does not support hard links, so this will always work.
          */
         if (node->fts_info == FTS_D && node->fts_statp->st_nlink == 2) {
-            /* Only create the target for types we are looking for */
             type = target_detect_type(node->fts_path);
-            if (type & type_mask) {
+            if ((type & type_mask) && target_validate_type(type, node->fts_path)) {
                 target = target_create(type, node->fts_path);
                 if (target)
                     zhashx_insert(targets, node->fts_path, target);
