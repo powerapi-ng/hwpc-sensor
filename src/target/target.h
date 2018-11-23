@@ -50,11 +50,14 @@ struct target
 };
 
 /*
- * target_create allocate the resources and configure the target.
- * The type of the target will be automatically detected.
- * To create an 'All' target to monitor the system globally, set the cgroup_path to NULL.
+ * target_detect_type returns the target type of the given cgroup path.
  */
-struct target *target_create(const char *cgroup_path);
+enum target_type target_detect_type(const char *cgroup_path);
+
+/*
+ * target_create allocate the resources and configure the target.
+ */
+struct target *target_create(enum target_type type, const char *cgroup_path);
 
 /*
  * target_validate_type validate the detected type of the given target.
@@ -75,7 +78,7 @@ void target_destroy(struct target *target);
 /*
  * target_discover_running returns a list of running targets.
  */
-void target_discover_running(enum target_type type_filter, zhashx_t *targets);
+int target_discover_running(char *base_path, enum target_type type_mask, zhashx_t *targets);
 
 #endif /* TARGET_H */
 

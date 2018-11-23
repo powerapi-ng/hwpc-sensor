@@ -16,10 +16,12 @@
  */
 
 #include <czmq.h>
+#include <fts.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "target.h"
 #include "docker.h"
@@ -66,7 +68,7 @@ target_detect_type(const char *cgroup_path)
 }
 
 struct target *
-target_create(const char *cgroup_path)
+target_create(enum target_type type, const char *cgroup_path)
 {
     struct target *target = malloc(sizeof(struct target));
 
@@ -74,7 +76,7 @@ target_create(const char *cgroup_path)
         return NULL;
 
     target->cgroup_path = (cgroup_path) ? strdup(cgroup_path) : NULL;
-    target->type = target_detect_type(cgroup_path);
+    target->type = type;
 
     return target;
 }
@@ -130,5 +132,38 @@ target_destroy(struct target *target)
 
     free(target->cgroup_path);
     free(target);
+}
+
+int
+target_discover_running(char *base_path, enum target_type type_mask, zhashx_t *targets)
+{
+    char * const path[] = { base_path, NULL };
+    FTS *file_system = NULL;
+    FTSENT *node = NULL;
+    enum target_type type;
+    struct target *target = NULL;
+
+    file_system = fts_open(path, FTS_LOGICAL | FTS_NOCHDIR, NULL);
+    if (!file_system)
+        return -1;
+
+    for (node = fts_read(file_system); node; node = fts_read(file_system)) {
+        /*
+         * Filtering the directories having 2 hard links leading to them to only get leaves directories.
+         * The cgroup subsystems does not support hard links, so this will always work.
+         */
+        if (node->fts_info == FTS_D && node->fts_statp->st_nlink == 2) {
+            /* Only create the target for types we are looking for */
+            type = target_detect_type(node->fts_path);
+            if (type & type_mask) {
+                target = target_create(type, node->fts_path);
+                if (target)
+                    zhashx_insert(targets, node->fts_path, target);
+            }
+        }
+    }
+
+    fts_close(file_system);
+    return 0;
 }
 
