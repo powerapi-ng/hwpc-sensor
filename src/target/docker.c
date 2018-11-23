@@ -62,6 +62,7 @@ build_container_config_path(const char *cgroup_path)
             if (res > 0 && res < TARGET_DOCKER_CONFIG_PATH_BUFFER_SIZE)
                 config_path = strdup(config_path_buffer);
         }
+        regfree(&re);
     }
 
     return config_path;
