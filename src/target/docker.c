@@ -25,7 +25,7 @@
 #include "target.h"
 
 int
-target_docker_detect(const char *cgroup_path)
+target_docker_validate(const char *cgroup_path)
 {
     regex_t re;
     int is_docker_target = false;
