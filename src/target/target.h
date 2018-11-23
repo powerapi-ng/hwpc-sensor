@@ -21,29 +21,18 @@
 #include <czmq.h>
 
 /*
- * DOCKER_CONFIG_PATH_BUFFER_SIZE stores the max length of the path to the container config file.
- * /var/lib/docker/containers/756535dc6e9ab9b560f84c85063f55952273a23192641fc2756aa9721d9d1000/config.v2.json = 106
- */
-#define DOCKER_CONFIG_PATH_BUFFER_SIZE 128
-
-/*
- * KUBERNETES_CGROUP_PATH_BUFFER_SIZE stores the max length of the cgroup path of a pod.
- * /sys/fs/cgroup/perf_event/kubepods/besteffort/pod60cad6a8-e823-11e8-a4df-3cfdfe591a10/271a325fb10fe34d9c9b93a98a2d1fb0959ab52088622f03c109ce310d9f7dfc/kube-proxy = 161
- */
-#define KUBERNETES_CGROUP_PATH_BUFFER_SIZE 256
-
-/*
  * target_type stores the supported target types.
  */
 enum target_type
 {
-    PERF_TARGET_UNKNOWN = 0,
-    PERF_TARGET_ALL = 1,
-    PERF_TARGET_SYSTEM = 2,
-    PERF_TARGET_KERNEL = 4,
-    PERF_TARGET_DOCKER = 8,
-    PERF_TARGET_KUBERNETES = 16,
-    PERF_TARGET_LIBVIRT = 32,
+    TARGET_TYPE_UNKNOWN = 0,
+    TARGET_TYPE_ALL = 1,
+    TARGET_TYPE_SYSTEM = 2,
+    TARGET_TYPE_KERNEL = 4,
+    TARGET_TYPE_DOCKER = 8,
+    TARGET_TYPE_KUBERNETES = 16,
+    TARGET_TYPE_LIBVIRT = 32,
+    TARGET_TYPE_EVERYTHING = 63
 };
 
 /*
@@ -56,18 +45,22 @@ extern const char *target_types_name[];
  */
 struct target
 {
-    char *cgroup_path;
     enum target_type type;
-
-    char (*resolve_name)(struct target *self);
-    void (*destroy)(struct target *self);
+    char *cgroup_path;
 };
 
 /*
  * target_create allocate the resources and configure the target.
- * Set cgroup_path to NULL to create a system target.
+ * The type of the target will be automatically detected.
+ * To create an 'All' target to monitor the system globally, set the cgroup_path to NULL.
  */
 struct target *target_create(const char *cgroup_path);
+
+/*
+ * target_validate_type validate the detected type of the given target.
+ * The target type is automatically detected at creation, but some targets may requires a more extensive verification.
+ */
+int target_validate_type(struct target *target);
 
 /*
  * target_resolve_real_name resolve and return the real name of the given target.

@@ -22,45 +22,47 @@
 #include <string.h>
 
 #include "target.h"
+#include "docker.h"
+#include "kubernetes.h"
 
 const char *target_types_name[] = {
-    [PERF_TARGET_UNKNOWN] = "unknown",
-    [PERF_TARGET_ALL] = "all",
-    [PERF_TARGET_SYSTEM] = "system",
-    [PERF_TARGET_KERNEL] = "kernel",
-    [PERF_TARGET_DOCKER] = "docker",
-    [PERF_TARGET_KUBERNETES] = "k8s",
-    [PERF_TARGET_LIBVIRT] = "libvirt"
+    [TARGET_TYPE_UNKNOWN] = "unknown",
+    [TARGET_TYPE_ALL] = "all",
+    [TARGET_TYPE_SYSTEM] = "system",
+    [TARGET_TYPE_KERNEL] = "kernel",
+    [TARGET_TYPE_DOCKER] = "docker",
+    [TARGET_TYPE_KUBERNETES] = "k8s",
+    [TARGET_TYPE_LIBVIRT] = "libvirt"
 };
 
-static enum target_type
-detect_target_type(const char *cgroup_path)
+enum target_type
+target_detect_type(const char *cgroup_path)
 {
     /* All running processes/threads (not a cgroup) */
     if (!cgroup_path)
-        return PERF_TARGET_ALL;
+        return TARGET_TYPE_ALL;
 
     /* System (running processes/threads in system cgroup) */
     if (strstr(cgroup_path, "perf_event/system"))
-        return PERF_TARGET_SYSTEM;
+        return TARGET_TYPE_SYSTEM;
 
     /* Kernel (running processes/threads in kernel cgroup) */
     if (strstr(cgroup_path, "perf_event/kernel"))
-        return PERF_TARGET_KERNEL;
+        return TARGET_TYPE_KERNEL;
 
     /* Docker (running containers) */
     if (strstr(cgroup_path, "perf_event/docker"))
-        return PERF_TARGET_DOCKER;
+        return TARGET_TYPE_DOCKER;
 
-    /* Kubernetes (running pods) */
+    /* Kubernetes (running containers) */
     if (strstr(cgroup_path, "perf_event/kubepods"))
-        return PERF_TARGET_KUBERNETES;
+        return TARGET_TYPE_KUBERNETES;
 
     /* LibVirt (running virtual machine) */
     if (strstr(cgroup_path, "perf_event/machine.slice"))
-        return PERF_TARGET_LIBVIRT;
+        return TARGET_TYPE_LIBVIRT;
 
-    return PERF_TARGET_UNKNOWN;
+    return TARGET_TYPE_UNKNOWN;
 }
 
 struct target *
@@ -72,105 +74,52 @@ target_create(const char *cgroup_path)
         return NULL;
 
     target->cgroup_path = (cgroup_path) ? strdup(cgroup_path) : NULL;
-    target->type = detect_target_type(cgroup_path);
+    target->type = target_detect_type(cgroup_path);
 
     return target;
 }
 
-static inline const char *
-extract_cgroup_name_from_path(const char *cgroup_path)
+int
+target_validate_type(struct target *target)
 {
-    return strrchr(cgroup_path, '/') + 1;
-}
+    switch (target->type) {
+        case TARGET_TYPE_DOCKER:
+            return target_kubernetes_validate(target->cgroup_path);
+            break;
 
-static char *
-get_docker_container_name(const char *cgroup_path)
-{
-    const char *container_id = extract_cgroup_name_from_path(cgroup_path);
-    char config_path[DOCKER_CONFIG_PATH_BUFFER_SIZE];
-    int r;
-    FILE *stream = NULL;
-    char *line = NULL;
-    size_t len = 0;
-    regex_t re = {0};
-    const char *expr = "\"Name\":\"/([a-zA-Z0-9][a-zA-Z0-9_.-]+)\""; /* extract container name from json */
-    const size_t num_matches = 2;
-    regmatch_t matches[num_matches];
-    char *container_name = NULL;
+        case TARGET_TYPE_KUBERNETES:
+            return target_kubernetes_validate(target->cgroup_path);
+            break;
 
-    r = snprintf(config_path, DOCKER_CONFIG_PATH_BUFFER_SIZE, "/var/lib/docker/containers/%s/config.v2.json", container_id);
-    if (r < 0 || r > DOCKER_CONFIG_PATH_BUFFER_SIZE)
-        return NULL;
-
-    stream = fopen(config_path, "r");
-    if (!stream)
-        return NULL;
-
-    if (getline(&line, &len, stream) != -1) {
-        if (!regcomp(&re, expr, REG_EXTENDED | REG_NEWLINE)) {
-            if (!regexec(&re, line, num_matches, matches, 0)) {
-                container_name = strndup(line + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
-            }
-            regfree(&re);
-        }
-        free(line);
+        default:
+            /* other types does not need a validation */
+            return true;
     }
-
-    fclose(stream);
-    return container_name;
-}
-
-static char *
-get_kubernetes_pod_name(const char *cgroup_path)
-{
-    char *pod_name = NULL;
-    char *resource_container_ptr = NULL;
-    char cgroup_path_buffer[KUBERNETES_CGROUP_PATH_BUFFER_SIZE];
-
-    /* try to get the pod name from the docker container */
-    pod_name = get_docker_container_name(cgroup_path);
-    if (!pod_name) {
-        /*
-         * If the above failed, the reason could be the use of a ResourceContainer. (like kube-proxy for example)
-         * In this case, we remove the resource container name from the path and try again.
-         */
-        resource_container_ptr = strrchr(cgroup_path, '/');
-        strncpy(cgroup_path_buffer, cgroup_path, resource_container_ptr - cgroup_path);
-        cgroup_path_buffer[resource_container_ptr - cgroup_path] = '\0';
-        pod_name = get_docker_container_name(cgroup_path_buffer);
-    }
-
-    return pod_name;
 }
 
 char *
 target_resolve_real_name(struct target *target)
 {
-    char *target_name = NULL;
-
-    switch (target->type)
-    {
-        case PERF_TARGET_ALL:
-            target_name = strdup(target_types_name[PERF_TARGET_ALL]);
+    switch (target->type) {
+        case TARGET_TYPE_DOCKER:
+            return target_docker_resolve_name(target);
             break;
 
-        case PERF_TARGET_DOCKER:
-            target_name = get_docker_container_name(target->cgroup_path);
+        case TARGET_TYPE_KUBERNETES:
+            return target_kubernetes_resolve_name(target);
             break;
 
-        case PERF_TARGET_KUBERNETES:
-            target_name = get_kubernetes_pod_name(target->cgroup_path);
+        case TARGET_TYPE_ALL:
+        case TARGET_TYPE_KERNEL:
+        case TARGET_TYPE_SYSTEM:
+            /* the above types have static name */
+            return strdup(target_types_name[target->type]);
             break;
 
-        case PERF_TARGET_SYSTEM:
-        case PERF_TARGET_KERNEL:
-        case PERF_TARGET_LIBVIRT:
         default:
-            target_name = strdup(extract_cgroup_name_from_path(target->cgroup_path));;
-            break;
+            /* return the basename of the cgroup path */
+            return strdup(strrchr(target->cgroup_path, '/') + 1);
     }
-
-    return target_name;
 }
 
 void
