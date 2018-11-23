@@ -18,6 +18,8 @@
 #ifndef TARGET_KUBERNETES_H
 #define TARGET_KUBERNETES_H
 
+#include "target.h"
+
 /*
  * TARGET_KUBERNETES_EXTRACT_CONTAINER_ID_REGEX stores the regex used to extract the Docker container id from a cgroup path.
  */
@@ -40,24 +42,14 @@
 #define TARGET_KUBERNETES_CONFIG_PATH_BUFFER_SIZE 128
 
 /*
- * target_kubernetes_detect returns true if the target pointing at the given cgroup path is a valid Kubernetes target.
+ * target_kubernetes_validate check if the cgroup path lead to a valid Kubernetes target.
  */
-int target_kubernetes_detect(const char *cgroup_path);
-
-/*
- * target_kubernetes_create allocate the required resources for a target.
- */
-struct target *target_kubernetes_create(char *cgroup_path);
+int target_kubernetes_validate(const char *cgroup_path);
 
 /*
  * target_kubernetes_resolve_name resolve and return the real name of the given target.
  */
 char *target_kubernetes_resolve_name(struct target *target);
-
-/*
- * target_kubernetes_destroy free the allocated memory for the given target.
- */
-void target_kubernetes_destroy(struct target *target);
 
 #endif /* TARGET_KUBERNETES_H */
 

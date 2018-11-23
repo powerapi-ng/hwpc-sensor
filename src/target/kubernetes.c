@@ -22,17 +22,17 @@
 #include "target.h"
 
 int
-target_kubernetes_detect(const char *cgroup_path)
+target_kubernetes_validate(const char *cgroup_path)
 {
-    regex_t re = {0};
-    int is_kubernetes_target = 0;
+    regex_t re;
+    bool is_kubernetes_target = false;
 
     if (!cgroup_path)
-        return 0;
+        return false;
 
-    if (!regcomp(&re, TARGET_KUBERNETES_EXTRACT_CONTAINER_ID_REGEX, REG_EXTENDED | REG_NOSUB)) {
+    if (!regcomp(&re, TARGET_KUBERNETES_EXTRACT_CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE | REG_NOSUB)) {
         if (!regexec(&re, cgroup_path, 0, NULL, 0))
-            is_kubernetes_target = 1;
+            is_kubernetes_target = true;
 
         regfree(&re);
     }
@@ -71,8 +71,8 @@ target_kubernetes_resolve_name(struct target *target)
     char *config_path = NULL;
     FILE *json_file = NULL;
     char *json = NULL;
-    size_t json_len = 0;
-    regex_t re = {0};
+    size_t json_len;
+    regex_t re;
     const size_t num_matches = 2;
     regmatch_t matches[num_matches];
     char *target_name = NULL;
@@ -85,9 +85,9 @@ target_kubernetes_resolve_name(struct target *target)
     if (json_file) {
         if (getline(&json, &json_len, json_file) != -1) {
             if (!regcomp(&re, TARGET_KUBERNETES_EXTRACT_CONTAINER_NAME_REGEX, REG_EXTENDED | REG_NEWLINE)) {
-                if (!regexec(&re, json, num_matches, matches, 0)) {
+                if (!regexec(&re, json, num_matches, matches, 0))
                     target_name = strndup(json + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
-                }
+
                 regfree(&re);
             }
             free(json);
@@ -97,31 +97,5 @@ target_kubernetes_resolve_name(struct target *target)
 
     free(config_path);
     return target_name;
-}
-
-void
-target_kubernetes_destroy(struct target *target)
-{
-    if (!target)
-        return;
-
-    free(target->cgroup_path);
-    free(target);
-}
-
-struct target *
-target_kubernetes_create(char *cgroup_path)
-{
-    struct target *target = malloc(sizeof(struct target));
-
-    if (!target)
-        return NULL;
-
-    target->type = TARGET_TYPE_KUBERNETES;
-    target->cgroup_path = cgroup_path;
-    target->resolve_name = target_kubernetes_resolve_name;
-    target->destroy = target_kubernetes_destroy;
-
-    return target;
 }
 
