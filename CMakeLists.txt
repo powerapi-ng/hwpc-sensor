@@ -22,7 +22,6 @@ set(SENSOR_SOURCES
     src/pmu.h src/pmu.c
     src/events.h src/events.c
     src/hwinfo.h src/hwinfo.c
-    src/cgroups.h src/cgroups.c
     src/payload.h src/payload.c
     src/report.h src/report.c
     src/perf.h src/perf.c
