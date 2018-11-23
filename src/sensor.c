@@ -25,10 +25,9 @@
 #include "pmu.h"
 #include "events.h"
 #include "hwinfo.h"
-#include "cgroups.h"
 #include "perf.h"
 #include "report.h"
-#include "target.h"
+#include "target/target.h"
 #include "storage.h"
 #include "csv.h"
 
@@ -64,39 +63,37 @@ setup_storage_module(enum storage_type type, char *sensor_name, char *Uflag, cha
 static void
 sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events_groups, char *cgroup_basepath, zhashx_t *container_monitoring_actors)
 {
-    zhashx_t *cgroups_running = NULL;
+    zhashx_t *running_targets = NULL; /* char *cgroup_path -> struct target *target */
     zactor_t *perf_monitor = NULL;
-    const bool *cgroup_placeholder = NULL;
     const char *cgroup_path = NULL;
     struct target *target = NULL;
     struct perf_config *monitor_config = NULL;
 
     /* to store running cgroups name and absolute path */
-    cgroups_running = zhashx_new();
+    running_targets = zhashx_new();
 
     /* get running container(s) */
-    cgroups_get_running_subgroups(cgroup_basepath, cgroups_running);
+    target_discover_running(cgroup_basepath, TARGET_TYPE_EVERYTHING ^ TARGET_TYPE_UNKNOWN, running_targets);
 
     /* stop monitoring dead container(s) */
     for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
         cgroup_path = zhashx_cursor(container_monitoring_actors);
-        if (!zhashx_lookup(cgroups_running, cgroup_path)) {
+        if (!zhashx_lookup(running_targets, cgroup_path)) {
             zhashx_delete(container_monitoring_actors, cgroup_path);
         }
     }
 
     /* start monitoring new container(s) */
-    for (cgroup_placeholder = zhashx_first(cgroups_running); cgroup_placeholder; cgroup_placeholder = zhashx_next(cgroups_running)) {
-        cgroup_path = zhashx_cursor(cgroups_running);
+    for (target = zhashx_first(running_targets); target; target = zhashx_next(running_targets)) {
+        cgroup_path = zhashx_cursor(running_targets);
         if (!zhashx_lookup(container_monitoring_actors, cgroup_path)) {
-            target = target_create(cgroup_path);
             monitor_config = perf_config_create(hwinfo, container_events_groups, target);
             perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
             zhashx_insert(container_monitoring_actors, cgroup_path, perf_monitor);
         }
     }
 
-    zhashx_destroy(&cgroups_running);
+    zhashx_destroy(&running_targets);
 }
 
 int
@@ -140,12 +137,6 @@ main (int argc, char **argv)
     /* check if run as root */
     if (geteuid()) {
         zsys_error("perms: this program requires to be run as root to work");
-        goto cleanup;
-    }
-
-    /* set scheduling priority of the program */
-    if (setpriority(PRIO_PROCESS, 0, -20)) {
-        zsys_error("priority: cannot set the process priority");
         goto cleanup;
     }
 
@@ -337,7 +328,7 @@ main (int argc, char **argv)
 
     /* start system monitoring actor only when needed */
     if (zhashx_size(system_events_groups)) {
-        system_target = target_create(NULL);
+        system_target = target_create(TARGET_TYPE_ALL, NULL);
         system_monitor_config = perf_config_create(hwinfo, system_events_groups, system_target);
         system_perf_monitor = zactor_new(perf_monitoring_actor, system_monitor_config);
     }
