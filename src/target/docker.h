@@ -18,10 +18,12 @@
 #ifndef TARGET_DOCKER_H
 #define TARGET_DOCKER_H
 
+#include "target.h"
+
 /*
- * TARGET_DOCKER_CGROUP_PATH_EXPECTED_REGEX stores the regex used to validate if a given cgroup is a Docker container.
+ * TARGET_DOCKER_EXTRACT_CONTAINER_ID_REGEX stores the regex used to extract the container id from of a cgroup path.
  */
-#define TARGET_DOCKER_CGROUP_PATH_EXPECTED_REGEX "perf_event/docker/[a-f0-9]{64}$"
+#define TARGET_DOCKER_EXTRACT_CONTAINER_ID_REGEX "perf_event/docker/([a-f0-9]{64})$"
 
 /*
  * DOCKER_CONFIG_PATH_BUFFER_SIZE stores the max length of the path to the container config file.
@@ -35,24 +37,14 @@
 #define TARGET_DOCKER_CONFIG_EXTRACT_NAME_REGEX "\"Name\":\"/([a-zA-Z0-9][a-zA-Z0-9_.-]+)\""
 
 /*
- * target_docker_detect returns true if the target pointing at the given cgroup path is a valid Docker target.
+ * target_docker_validate check if the cgroup path lead to a valid Docker target.
  */
-int target_docker_detect(const char *cgroup_path);
-
-/*
- * target_docker_create allocate the required resources for a target.
- */
-struct target *target_docker_create(char *cgroup_path);
+int target_docker_validate(const char *cgroup_path);
 
 /*
  * target_docker_resolve_name resolve and return the real name of the given target.
  */
 char *target_docker_resolve_name(struct target *target);
-
-/*
- * target_docker_destroy free the allocated memory for the given target.
- */
-void target_docker_destroy(struct target *target);
 
 #endif /* TARGET_DOCKER_H */
 
