@@ -70,20 +70,20 @@ build_container_config_path(const char *cgroup_path)
 char *
 target_docker_resolve_name(struct target *target)
 {
-	char *config_path = NULL;
-	FILE *json_file = NULL;
-	char *json = NULL;
-	size_t json_len;
-	regex_t re;
-	const size_t num_matches = 2;
-	regmatch_t matches[num_matches];
-	char *target_name = NULL;
+    char *config_path = NULL;
+    FILE *json_file = NULL;
+    char *json = NULL;
+    size_t json_len;
+    regex_t re;
+    const size_t num_matches = 2;
+    regmatch_t matches[num_matches];
+    char *target_name = NULL;
 
     config_path = build_container_config_path(target->cgroup_path);
     if (!config_path)
         return NULL;
 
-	json_file = fopen(config_path, "r");
+    json_file = fopen(config_path, "r");
     if (json_file) {
         if (getline(&json, &json_len, json_file) != -1) {
             if (!regcomp(&re, TARGET_DOCKER_CONFIG_EXTRACT_NAME_REGEX, REG_EXTENDED | REG_NEWLINE)) {
@@ -98,6 +98,6 @@ target_docker_resolve_name(struct target *target)
     }
 
     free(config_path);
-	return target_name;
+    return target_name;
 }
 
