@@ -12,16 +12,16 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_FORTIFY_SOURCE=2")
 find_package(PkgConfig)
 pkg_check_modules(CZMQ REQUIRED libczmq)
 #pkg_check_modules(PFM REQUIRED libpfm)
-pkg_check_modules(CGROUP REQUIRED libcgroup)
 
 set(SENSOR_SOURCES
     src/config.h
     src/util.h src/util.c
-    src/target.h src/target.c
+    src/target/target.h src/target/target.c
+    src/target/docker.h src/target/docker.c
+    src/target/kubernetes.h src/target/kubernetes.c
     src/pmu.h src/pmu.c
     src/events.h src/events.c
     src/hwinfo.h src/hwinfo.c
-    src/cgroups.h src/cgroups.c
     src/payload.h src/payload.c
     src/report.h src/report.c
     src/perf.h src/perf.c
@@ -30,9 +30,9 @@ set(SENSOR_SOURCES
     src/sensor.c
 )
 
-set(SENSOR_INCLUDES "${CZMQ_INCLUDE_DIRS}" "${CGROUP_INCLUDE_DIRS}")
-set(SENSOR_DEFINITIONS "${CZMQ_DEFINITIONS}" "${CGROUP_DEFINITIONS}")
-set(SENSOR_LIBRARIES "${CZMQ_LIBRARIES}" "${CGROUP_LIBRARIES}" pfm)
+set(SENSOR_INCLUDES "${CZMQ_INCLUDE_DIRS}")
+set(SENSOR_DEFINITIONS "${CZMQ_DEFINITIONS}")
+set(SENSOR_LIBRARIES "${CZMQ_LIBRARIES}" pfm)
 
 if(WITH_MONGODB)
     pkg_check_modules(BSON REQUIRED libbson-1.0)

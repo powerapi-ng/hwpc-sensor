@@ -18,24 +18,21 @@
 #ifndef TARGET_H
 #define TARGET_H
 
-/*
- * DOCKER_CONFIG_PATH_BUFFER_SIZE stores the max length of the path to the container config file.
- * /var/lib/docker/containers/756535dc6e9ab9b560f84c85063f55952273a23192641fc2756aa9721d9d1000/config.v2.json = 106
- */
-#define DOCKER_CONFIG_PATH_BUFFER_SIZE 128
+#include <czmq.h>
 
 /*
  * target_type stores the supported target types.
  */
 enum target_type
 {
-    PERF_TARGET_UNKNOWN,
-    PERF_TARGET_ALL,
-    PERF_TARGET_SYSTEM,
-    PERF_TARGET_KERNEL,
-    PERF_TARGET_DOCKER,
-    PERF_TARGET_KUBERNETES,
-    PERF_TARGET_LIBVIRT
+    TARGET_TYPE_UNKNOWN = 1,
+    TARGET_TYPE_ALL = 2,
+    TARGET_TYPE_SYSTEM = 4,
+    TARGET_TYPE_KERNEL = 8,
+    TARGET_TYPE_DOCKER = 16,
+    TARGET_TYPE_KUBERNETES = 32,
+    TARGET_TYPE_LIBVIRT = 64,
+    TARGET_TYPE_EVERYTHING = 127
 };
 
 /*
@@ -48,15 +45,24 @@ extern const char *target_types_name[];
  */
 struct target
 {
-    char *cgroup_path;
     enum target_type type;
+    char *cgroup_path;
 };
 
 /*
- * target_create allocate the resources and configure the target.
- * Set cgroup_path to NULL to create a system target.
+ * target_detect_type returns the target type of the given cgroup path.
  */
-struct target *target_create(const char *cgroup_path);
+enum target_type target_detect_type(const char *cgroup_path);
+
+/*
+ * target_validate_type validate the target type of the given cgroup path.
+ */
+int target_validate_type(enum target_type type, const char *cgroup_path);
+
+/*
+ * target_create allocate the resources and configure the target.
+ */
+struct target *target_create(enum target_type type, const char *cgroup_path);
 
 /*
  * target_resolve_real_name resolve and return the real name of the given target.
@@ -67,6 +73,11 @@ char *target_resolve_real_name(struct target *target);
  * target_destroy free the allocated resources for the target.
  */
 void target_destroy(struct target *target);
+
+/*
+ * target_discover_running returns a list of running targets.
+ */
+int target_discover_running(char *base_path, enum target_type type_mask, zhashx_t *targets);
 
 #endif /* TARGET_H */
 
