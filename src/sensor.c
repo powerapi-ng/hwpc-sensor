@@ -72,17 +72,19 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     /* to store running cgroups name and absolute path */
     running_targets = zhashx_new();
 
-    /* get running container(s) */
-    target_discover_running(cgroup_basepath, TARGET_TYPE_EVERYTHING ^ TARGET_TYPE_UNKNOWN, running_targets);
+    /* get running (and identifiable) container(s) */
+    if (target_discover_running(cgroup_basepath, TARGET_TYPE_EVERYTHING ^ TARGET_TYPE_UNKNOWN, running_targets)) {
+        zsys_error("sensor: error when retrieving the running targets.");
+        goto out;
+    }
 
     /* stop monitoring dead container(s) */
     for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
         cgroup_path = zhashx_cursor(container_monitoring_actors);
         target = zhashx_lookup(running_targets, cgroup_path);
         if (!target) {
+            zhashx_freefn(running_targets, cgroup_path, (zhashx_free_fn *) target_destroy);
             zhashx_delete(container_monitoring_actors, cgroup_path);
-            zhashx_delete(running_targets, cgroup_path);
-            target_destroy(target);
         }
     }
 
@@ -94,17 +96,16 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
             perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
             zhashx_insert(container_monitoring_actors, cgroup_path, perf_monitor);
         } else {
-            target = zhashx_lookup(running_targets, cgroup_path);
-            zhashx_delete(running_targets, cgroup_path);
-            target_destroy(target);
+            zhashx_freefn(running_targets, cgroup_path, (zhashx_free_fn *) target_destroy);
         }
     }
 
+out:
     zhashx_destroy(&running_targets);
 }
 
 int
-main (int argc, char **argv)
+main(int argc, char **argv)
 {
     int ret = 1;
     int c;
