@@ -106,6 +106,7 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
 {
     struct mongodb_context *ctx = module->context;
     bson_t document = BSON_INITIALIZER;
+    bson_t doc_groups;
     struct payload_group_data *group_data = NULL;
     const char *group_name = NULL;
     bson_t doc_group;
@@ -126,28 +127,31 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
      *    "timestamp": 1529868713854,
      *    "sensor": "test.cluster.lan",
      *    "target": "example",
-     *    "group_name": {
-     *       "pkg_id": {
-     *          "cpu_id": {
-     *              "time_enabled": 12345,
-     *              "time_running": 12345,
-     *              "event_name": 123456789.0,
-     *              more events...
+     *    "groups": {
+     *      "group_name": {
+     *          "pkg_id": {
+     *              "cpu_id": {
+     *                  "time_enabled": 12345,
+     *                  "time_running": 12345,
+     *                  "event_name": 123456789.0,
+     *                  more events...
+     *              },
+     *              more cpus...
      *          },
-     *          more cpus...
+     *          more pkgs...
      *      },
-     *      more pkgs...
-     *    },
-     *    more groups...
+     *      more groups...
+     *   }
      * }
      */
     BSON_APPEND_DATE_TIME(&document, "timestamp", payload->timestamp);
     BSON_APPEND_UTF8(&document, "sensor", ctx->config.sensor_name);
     BSON_APPEND_UTF8(&document, "target", payload->target_name);
 
+    BSON_APPEND_DOCUMENT_BEGIN(&document, "groups", &doc_groups);
     for (group_data = zhashx_first(payload->groups); group_data; group_data = zhashx_next(payload->groups)) {
         group_name = zhashx_cursor(payload->groups);
-        BSON_APPEND_DOCUMENT_BEGIN(&document, group_name, &doc_group);
+        BSON_APPEND_DOCUMENT_BEGIN(&doc_groups, group_name, &doc_group);
 
         for (pkg_data = zhashx_first(group_data->pkgs); pkg_data; pkg_data = zhashx_next(group_data->pkgs)) {
             pkg_id = zhashx_cursor(group_data->pkgs);
@@ -168,8 +172,9 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
             bson_append_document_end(&doc_group, &doc_pkg);
         }
 
-        bson_append_document_end(&document, &doc_group);
+        bson_append_document_end(&doc_groups, &doc_group);
     }
+    bson_append_document_end(&document, &doc_groups);
 
     /* insert document into collection */
     if (!mongoc_collection_insert_one(ctx->collection, &document, NULL, NULL, &error)) {
