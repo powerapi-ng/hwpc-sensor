@@ -41,7 +41,7 @@
 #include "hwinfo.h"
 #include "perf.h"
 #include "report.h"
-#include "target/target.h"
+#include "target.h"
 #include "storage.h"
 #include "storage_csv.h"
 

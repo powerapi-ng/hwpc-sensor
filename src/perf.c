@@ -38,7 +38,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#include "target/target.h"
+#include "target.h"
 #include "hwinfo.h"
 #include "events.h"
 #include "payload.h"

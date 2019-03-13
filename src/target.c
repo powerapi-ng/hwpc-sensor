@@ -38,8 +38,8 @@
 #include <sys/stat.h>
 
 #include "target.h"
-#include "docker.h"
-#include "kubernetes.h"
+#include "target_docker.h"
+#include "target_kubernetes.h"
 
 const char *target_types_name[] = {
     [TARGET_TYPE_UNKNOWN] = "unknown",
