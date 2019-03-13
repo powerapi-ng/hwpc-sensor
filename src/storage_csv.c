@@ -33,8 +33,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "csv.h"
 #include "storage.h"
+#include "storage_csv.h"
 
 static void
 group_fd_destroy(FILE **fd_ptr)
@@ -354,7 +354,7 @@ csv_destroy(struct storage_module *module)
 }
 
 struct storage_module *
-csv_create(const char *sensor_name, const char *output_dir)
+storage_csv_create(const char *sensor_name, const char *output_dir)
 {
     struct storage_module *module = NULL;
     struct csv_context *ctx = NULL;

@@ -43,7 +43,7 @@
 #include "report.h"
 #include "target/target.h"
 #include "storage.h"
-#include "csv.h"
+#include "storage_csv.h"
 
 #ifdef HAVE_MONGODB
 #include "mongodb.h"
@@ -64,7 +64,7 @@ setup_storage_module(enum storage_type type, char *sensor_name, char *Uflag, cha
     switch (type)
     {
         case STORAGE_CSV:
-            return csv_create(sensor_name, Uflag);
+            return storage_csv_create(sensor_name, Uflag);
 #ifdef HAVE_MONGODB
         case STORAGE_MONGODB:
             return mongodb_create(sensor_name, Uflag, Dflag, Cflag);

@@ -26,7 +26,7 @@ set(SENSOR_SOURCES
     src/report.h src/report.c
     src/perf.h src/perf.c
     src/storage.h src/storage.c
-    src/csv.h src/csv.c
+    src/storage_csv.h src/storage_csv.c
     src/sensor.c
 )
 

@@ -29,8 +29,8 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSV_H
-#define CSV_H
+#ifndef STORAGE_CSV_H
+#define STORAGE_CSV_H
 
 #include <czmq.h>
 
@@ -64,9 +64,9 @@ struct csv_context
 };
 
 /*
- * csv_create creates and configure a csv storage module..
+ * storage_csv_create creates and configure a csv storage module..
  */
-struct storage_module *csv_create(const char *sensor_name, const char *output_dir);
+struct storage_module *storage_csv_create(const char *sensor_name, const char *output_dir);
 
 #endif /* CSV_H */
 
