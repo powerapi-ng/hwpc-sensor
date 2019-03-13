@@ -29,12 +29,11 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MONGODB_H
-#define MONGODB_H
+#ifndef STORAGE_MONGODB_H
+#define STORAGE_MONGODB_H
 
 #include <mongoc.h>
 #include "storage.h"
-#include "report.h"
 
 /*
  * mongodb_config stores the required information for the module.
@@ -59,9 +58,9 @@ struct mongodb_context
 };
 
 /*
- * mongodb_create creates and configure a mongodb storage module.
+ * storage_mongodb_create creates and configure a mongodb storage module.
  */
-struct storage_module *mongodb_create(const char *sensor_name, const char *uri, const char *database, const char *collection);
+struct storage_module *storage_mongodb_create(const char *sensor_name, const char *uri, const char *database, const char *collection);
 
-#endif
+#endif /* STORAGE_MONGODB_H */
 

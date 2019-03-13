@@ -31,8 +31,8 @@
 
 #include <mongoc.h>
 
-#include "mongodb.h"
 #include "report.h"
+#include "storage_mongodb.h"
 #include "perf.h"
 
 static struct mongodb_context *
@@ -226,7 +226,7 @@ mongodb_destroy(struct storage_module *module)
 }
 
 struct storage_module *
-mongodb_create(const char *sensor_name, const char *uri, const char *database, const char *collection)
+storage_mongodb_create(const char *sensor_name, const char *uri, const char *database, const char *collection)
 {
     struct storage_module *module = NULL;
     struct mongodb_context *ctx = NULL;
