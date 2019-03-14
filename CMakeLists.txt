@@ -14,6 +14,7 @@ pkg_check_modules(CZMQ REQUIRED libczmq)
 #pkg_check_modules(PFM REQUIRED libpfm)
 
 set(SENSOR_SOURCES
+    src/version.h
     src/config.h
     src/util.h src/util.c
     src/target.h src/target.c
@@ -42,6 +43,10 @@ if(WITH_MONGODB)
     set(SENSOR_DEFINITIONS "${SENSOR_DEFINITIONS}" "${BSON_DEFINITIONS}" "${MONGOC_DEFINITIONS}")
     set(SENSOR_LIBRARIES "${SENSOR_LIBRARIES}" "${BSON_LIBRARIES}" "${MONGOC_LIBRARIES}")
     add_definitions(-DHAVE_MONGODB)
+endif()
+
+if(DEFINED ENV{GIT_TAG} AND DEFINED ENV{GIT_REV})
+    add_definitions(-DVERSION_GIT_TAG="$ENV{GIT_TAG}" -DVERSION_GIT_REV="$ENV{GIT_REV}")
 endif()
 
 add_executable(hwpc-sensor "${SENSOR_SOURCES}")

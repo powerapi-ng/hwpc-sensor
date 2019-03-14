@@ -3,12 +3,14 @@ FROM debian:buster as builder
 ARG BUILD_TYPE=Debug
 ARG MONGODB_SUPPORT=ON
 RUN apt update && \
-    apt install -y build-essential clang-tidy cmake pkg-config libczmq-dev libpfm4-dev libsystemd-dev uuid-dev && \
+    apt install -y build-essential git clang-tidy cmake pkg-config libczmq-dev libpfm4-dev libsystemd-dev uuid-dev && \
     echo "${MONGODB_SUPPORT}" |grep -iq "on" && apt install -y libmongoc-dev || true
 COPY . /usr/src/hwpc-sensor
 RUN cd /usr/src/hwpc-sensor && \
     mkdir build && \
     cd build && \
+    GIT_TAG=$(git describe --tags --dirty 2>/dev/null || echo "unknown") \
+    GIT_REV=$(git rev-parse HEAD 2>/dev/null || echo "unknown") \
     cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_C_CLANG_TIDY="clang-tidy" -DWITH_MONGODB="${MONGODB_SUPPORT}" .. && \
     make -j $(getconf _NPROCESSORS_ONLN)
 
