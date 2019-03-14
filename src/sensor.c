@@ -33,9 +33,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/resource.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 #include <czmq.h>
 
+#include "version.h"
 #include "pmu.h"
 #include "events.h"
 #include "hwinfo.h"
@@ -122,6 +124,7 @@ int
 main(int argc, char **argv)
 {
     int ret = 1;
+    struct utsname kernel_info;
     int c;
     int verbose = 0;
     char *frequency_endp = NULL;
@@ -155,6 +158,16 @@ main(int argc, char **argv)
 
     /* disable limit of maximum czmq sockets */
     zsys_set_max_sockets(0);
+
+    /* show build information */
+    zsys_info("build: version %s (rev: %s) (%s - %s)", VERSION_GIT_TAG, VERSION_GIT_REV, __DATE__, __TIME__);
+
+    /* show Kernel information */
+    if (uname(&kernel_info)) {
+	zsys_error("uname: failed to get Kernel information");
+	goto cleanup;
+    }
+    zsys_info("uname: %s %s %s %s", kernel_info.sysname, kernel_info.release, kernel_info.version, kernel_info.machine);
 
     /* check if run as root */
     if (geteuid()) {
