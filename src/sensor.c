@@ -342,13 +342,13 @@ main(int argc, char **argv)
         zsys_error("sensor: failed to create %s storage module", storage_type);
         goto cleanup;
     }
-    if (STORAGE_MODULE_CALL(storage, initialize)) {
+    if (storage_module_initialize(storage)) {
         zsys_error("sensor: failed to initialize storage module");
         goto cleanup;
     }
-    if (STORAGE_MODULE_CALL(storage, ping)) {
+    if (storage_module_ping(storage)) {
         zsys_error("sensor: failed to ping storage module");
-        STORAGE_MODULE_CALL(storage, deinitialize);
+	storage_module_deinitialize(storage);
         goto cleanup;
     }
 
@@ -384,7 +384,7 @@ main(int argc, char **argv)
     }
 
     /* clean storage module ressources */
-    STORAGE_MODULE_CALL(storage, deinitialize);
+    storage_module_deinitialize(storage);
 
     ret = 0;
 

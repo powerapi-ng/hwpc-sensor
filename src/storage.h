@@ -36,11 +36,6 @@
 #include "report.h"
 
 /*
- * STORAGE_MODULE_CALL simplify the use of storage modules functions.
- */
-#define STORAGE_MODULE_CALL(module, func, ...)  (*module->func)(module, ##__VA_ARGS__)
-
-/*
  * storage_type enumeration allows to select a storage type to generate.
  */
 enum storage_type
@@ -68,14 +63,34 @@ struct storage_module
 };
 
 /*
+ * storage_module_get_type returns the type of the given storage module name.
+ */
+enum storage_type storage_module_get_type(const char *type_name);
+
+/*
  * storage_module_create allocate the required ressources for a storage module.
  */
 struct storage_module *storage_module_create();
 
 /*
- * storage_module_get_type returns the type of the given storage module name.
+ * storage_module_initialize initialize the storage module.
  */
-enum storage_type storage_module_get_type(const char *type_name);
+int storage_module_initialize(struct storage_module *module);
+
+/*
+ * storage_module_ping test if the storage module is working.
+ */
+int storage_module_ping(struct storage_module *module);
+
+/*
+ * storage_module_store_report store a report using the storage module.
+ */
+int storage_module_store_report(struct storage_module *module, struct payload *payload);
+
+/*
+ * storage_module_deinitialize deinitialize the storage module.
+ */
+int storage_module_deinitialize(struct storage_module *module);
 
 /*
  * storage_module_destroy free the allocated ressources for the storage module.

@@ -34,17 +34,6 @@
 
 #include "storage.h"
 
-struct storage_module *
-storage_module_create()
-{
-    struct storage_module *module = malloc(sizeof(struct storage_module));
-    
-    if (!module)
-        return NULL;
-
-    return module;
-}
-
 enum storage_type
 storage_module_get_type(const char *type_name)
 {
@@ -61,13 +50,47 @@ storage_module_get_type(const char *type_name)
     return STORAGE_UNKNOWN;
 }
 
+struct storage_module *
+storage_module_create()
+{
+    struct storage_module *module = malloc(sizeof(struct storage_module));
+
+    if (!module)
+        return NULL;
+
+    return module;
+}
+
+int
+storage_module_initialize(struct storage_module *module)
+{
+    return (*module->initialize)(module);
+}
+
+int
+storage_module_ping(struct storage_module *module)
+{
+    return (*module->ping)(module);
+}
+
+int
+storage_module_store_report(struct storage_module *module, struct payload *payload)
+{
+    return (*module->store_report)(module, payload);
+}
+
+int
+storage_module_deinitialize(struct storage_module *module)
+{
+    return (*module->deinitialize)(module);
+}
+
 void
 storage_module_destroy(struct storage_module *module)
 {
     if (!module)
         return;
 
-    STORAGE_MODULE_CALL(module, destroy);
-    free(module);
+    (*module->destroy)(module);
 }
 

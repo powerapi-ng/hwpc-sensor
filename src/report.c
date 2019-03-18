@@ -116,7 +116,7 @@ handle_reporting(struct report_context *ctx)
     if (!payload)
         return;
 
-    if (STORAGE_MODULE_CALL(ctx->config->storage, store_report, payload)) {
+    if (storage_module_store_report(ctx->config->storage, payload)) {
         zsys_error("report: failed to store the report for timestamp=%lu", payload->timestamp);
     }
 
