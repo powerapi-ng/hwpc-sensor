@@ -38,6 +38,7 @@
 #include <czmq.h>
 
 #include "version.h"
+#include "config.h"
 #include "pmu.h"
 #include "events.h"
 #include "hwinfo.h"
@@ -61,15 +62,15 @@ usage()
 }
 
 static struct storage_module *
-setup_storage_module(enum storage_type type, char *sensor_name, char *Uflag, char *Dflag __attribute__((unused)), char *Cflag __attribute__((unused)))
+setup_storage_module(struct config *config)
 {
-    switch (type)
+    switch (config->storage.type)
     {
         case STORAGE_CSV:
-            return storage_csv_create(sensor_name, Uflag);
+            return storage_csv_create(config);
 #ifdef HAVE_MONGODB
         case STORAGE_MONGODB:
-            return storage_mongodb_create(sensor_name, Uflag, Dflag, Cflag);
+            return storage_mongodb_create(config);
 #endif
         default:
             return NULL;
@@ -77,7 +78,7 @@ setup_storage_module(enum storage_type type, char *sensor_name, char *Uflag, cha
 }
 
 static void
-sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events_groups, char *cgroup_basepath, zhashx_t *container_monitoring_actors)
+sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events_groups, const char *cgroup_basepath, zhashx_t *container_monitoring_actors)
 {
     zhashx_t *running_targets = NULL; /* char *cgroup_path -> struct target *target */
     zactor_t *perf_monitor = NULL;
@@ -124,21 +125,9 @@ int
 main(int argc, char **argv)
 {
     int ret = 1;
+    struct config *config = NULL;
     struct utsname kernel_info;
-    int c;
-    int verbose = 0;
-    char *frequency_endp = NULL;
-    long frequency = 1000; /* in milliseconds */
     struct pmu_topology *sys_pmu_topology = NULL;
-    char *cgroup_basepath = "/sys/fs/cgroup/perf_event";
-    zhashx_t *system_events_groups = NULL; /* char *group_name -> struct events_group *group */
-    zhashx_t *container_events_groups = NULL; /* char *group_name -> struct events_group *group */
-    struct events_group *current_events_group = NULL;
-    char *sensor_name = NULL;
-    enum storage_type storage_type = STORAGE_CSV; /* use csv storage module by default */
-    char *Uflag = NULL;
-    char *Dflag = NULL;
-    char *Cflag = NULL;
     struct pmu_info *pmu = NULL;
     struct hwinfo *hwinfo = NULL;
     struct storage_module *storage = NULL;
@@ -181,129 +170,20 @@ main(int argc, char **argv)
         goto cleanup;
     }
 
-    /* stores events to monitor globally (system) */
-    system_events_groups = zhashx_new();
-    zhashx_set_duplicator(system_events_groups, (zhashx_duplicator_fn *) events_group_dup);
-    zhashx_set_destructor(system_events_groups, (zhashx_destructor_fn *) events_group_destroy);
-
-    /* stores events to monitor per-container */
-    container_events_groups = zhashx_new();
-    zhashx_set_duplicator(container_events_groups, (zhashx_duplicator_fn *) events_group_dup);
-    zhashx_set_destructor(container_events_groups, (zhashx_destructor_fn *) events_group_destroy);
-
-    /* parse cli arguments */
-    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:or:U:D:C:")) != -1) {
-        switch (c)
-        {
-            case 'v':
-                verbose++;
-                break;
-            case 'f':
-                errno = 0;
-                frequency = strtol(optarg, &frequency_endp, 0);
-                if (*optarg == '\0' || *frequency_endp != '\0' || errno) {
-                    zsys_error("args: the given frequency is invalid");
-                    goto cleanup;
-                }
-                if (frequency < INT_MIN || frequency > INT_MAX) {
-                    zsys_error("args: the given frequency is out of range");
-                    goto cleanup;
-                }
-                break;
-            case 'p':
-                cgroup_basepath = optarg;
-                break;
-            case 'n':
-                sensor_name = optarg;
-                break;
-            case 's':
-                current_events_group = events_group_create(optarg);
-                if (!current_events_group) {
-                    zsys_error("args: failed to create the '%s' system group", optarg);
-                    goto cleanup;
-                }
-                zhashx_insert(system_events_groups, optarg, current_events_group);
-                events_group_destroy(&current_events_group);
-                current_events_group = zhashx_lookup(system_events_groups, optarg); /* get the duplicated events group */
-                break;
-            case 'c':
-                current_events_group = events_group_create(optarg);
-                if (!current_events_group) {
-                    zsys_error("args: failed to create the '%s' container group", optarg);
-                    goto cleanup;
-                }
-                zhashx_insert(container_events_groups, optarg, current_events_group);
-                events_group_destroy(&current_events_group);
-                current_events_group = zhashx_lookup(container_events_groups, optarg); /* get the duplicated events group */
-                break;
-            case 'e':
-                if (!current_events_group) {
-                    zsys_error("args: you cannot add events to an inexisting events group");
-                    goto cleanup;
-                }
-                if (events_group_append_event(current_events_group, optarg)) {
-                    zsys_error("args: the event '%s' is invalid or unsupported by this machine", optarg);
-                    goto cleanup;
-                }
-                break;
-            case 'o':
-                if (!current_events_group) {
-                    zsys_error("args: you cannot set the type of an inexistent events group");
-                    goto cleanup;
-                }
-                current_events_group->type = MONITOR_ONE_CPU_PER_SOCKET;
-                break;
-            case 'r':
-                storage_type = storage_module_get_type(optarg);
-                if (storage_type == STORAGE_UNKNOWN) {
-                    zsys_error("args: storage module '%s' is invalid or disabled at compile time", optarg);
-                    goto cleanup;
-                }
-                break;
-            case 'U':
-                Uflag = optarg;
-                break;
-            case 'D':
-                Dflag = optarg;
-                break;
-            case 'C':
-                Cflag = optarg;
-                break;
-            default:
-                usage();
-                goto cleanup;
-        }
+    /* get application config */
+    config = config_create();
+    if (!config) {
+	zsys_error("config: failed to create config container");
+	goto cleanup;
     }
-
-    /* check program configuration */
-    if (frequency <= 0) {
-        zsys_error("args: the measurement frequency must be > 0");
-        goto cleanup;
+    if (config_setup_from_cli(argc, argv, config)) {
+	zsys_error("config: failed to parse the provided command-line arguments");
+	goto cleanup;
     }
-
-    if (!sensor_name) {
-        zsys_error("args: you must provide a sensor name");
-        goto cleanup;
-    }
-
-    if (zhashx_size(system_events_groups) == 0 && zhashx_size(container_events_groups) == 0) {
-        zsys_error("args: you must provide event(s) to monitor");
-        goto cleanup;
-    }
-
-    if (storage_type == STORAGE_CSV && (!Uflag)) {
-        zsys_error("args: you must provide the required CSV storage module configuration");
-        goto cleanup;
-    }
-
-#ifdef HAVE_MONGODB
-    if (storage_type == STORAGE_MONGODB && (!Uflag || !Dflag || !Cflag)) {
-        zsys_error("args: you must provide the required MongoDB storage module configuration");
-        goto cleanup;
-    }
-#endif
-
-    zsys_info("sensor: starting...");
+    if (config_validate(config)) {
+	zsys_error("config: failed to validate config");
+	goto cleanup;
+    };
 
     /* detect pmu topology */
     sys_pmu_topology = pmu_topology_create();
@@ -337,9 +217,10 @@ main(int argc, char **argv)
     }
 
     /* setup storage module */
-    storage = setup_storage_module(storage_type, sensor_name, Uflag, Dflag, Cflag);
+    storage = setup_storage_module(config);
     if (!storage) {
-        zsys_error("sensor: failed to create %s storage module", storage_type);
+	// TODO: get storage module name
+        zsys_error("sensor: failed to create %s storage module", "unkown:TODO");
         goto cleanup;
     }
     if (storage_module_initialize(storage)) {
@@ -352,6 +233,8 @@ main(int argc, char **argv)
         goto cleanup;
     }
 
+    zsys_info("sensor: configuration is valid, starting monitoring...");
+
     /* start reporting actor */
     reporting_conf = (struct report_config){
         .storage = storage
@@ -362,9 +245,9 @@ main(int argc, char **argv)
     ticker = zsock_new_pub("inproc://ticker");
 
     /* start system monitoring actor only when needed */
-    if (zhashx_size(system_events_groups)) {
+    if (zhashx_size(config->events.system)) {
         system_target = target_create(TARGET_TYPE_ALL, NULL);
-        system_monitor_config = perf_config_create(hwinfo, system_events_groups, system_target);
+        system_monitor_config = perf_config_create(hwinfo, config->events.system, system_target);
         system_perf_monitor = zactor_new(perf_monitoring_actor, system_monitor_config);
     }
 
@@ -373,14 +256,14 @@ main(int argc, char **argv)
     zhashx_set_destructor(container_monitoring_actors, (zhashx_destructor_fn *) zactor_destroy);
     while (!zsys_interrupted) {
         /* monitor containers only when needed */
-        if (zhashx_size(container_events_groups)) {
-            sync_cgroups_running_monitored(hwinfo, container_events_groups, cgroup_basepath, container_monitoring_actors);
+        if (zhashx_size(config->events.containers)) {
+            sync_cgroups_running_monitored(hwinfo, config->events.containers, config->sensor.cgroup_basepath, container_monitoring_actors);
         }
 
         /* send clock tick to monitoring actors */
         zsock_send(ticker, "s8", "CLOCK_TICK", zclock_time());
 
-        zclock_sleep((int) frequency);
+        zclock_sleep(config->sensor.frequency);
     }
 
     /* clean storage module ressources */
@@ -395,8 +278,7 @@ cleanup:
     zactor_destroy(&reporting);
     storage_module_destroy(storage);
     zsock_destroy(&ticker);
-    zhashx_destroy(&system_events_groups);
-    zhashx_destroy(&container_events_groups);
+    config_destroy(config);
     pmu_topology_destroy(sys_pmu_topology);
     pmu_deinitialize();
     hwinfo_destroy(hwinfo);
