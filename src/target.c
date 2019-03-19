@@ -149,15 +149,15 @@ target_destroy(struct target *target)
 }
 
 int
-target_discover_running(char *base_path, enum target_type type_mask, zhashx_t *targets)
+target_discover_running(const char *base_path, enum target_type type_mask, zhashx_t *targets)
 {
-    char * const path[] = { base_path, NULL };
+    const char *path[] = { base_path, NULL };
     FTS *file_system = NULL;
     FTSENT *node = NULL;
     enum target_type type;
     struct target *target = NULL;
 
-    file_system = fts_open(path, FTS_LOGICAL | FTS_NOCHDIR, NULL);
+    file_system = fts_open((char * const *)path, FTS_LOGICAL | FTS_NOCHDIR, NULL);
     if (!file_system)
         return -1;
 

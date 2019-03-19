@@ -91,7 +91,7 @@ void target_destroy(struct target *target);
 /*
  * target_discover_running returns a list of running targets.
  */
-int target_discover_running(char *base_path, enum target_type type_mask, zhashx_t *targets);
+int target_discover_running(const char *base_path, enum target_type type_mask, zhashx_t *targets);
 
 #endif /* TARGET_H */
 
