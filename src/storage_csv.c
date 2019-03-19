@@ -35,6 +35,7 @@
 
 #include "storage.h"
 #include "storage_csv.h"
+#include "config.h"
 
 static void
 group_fd_destroy(FILE **fd_ptr)
@@ -354,16 +355,16 @@ csv_destroy(struct storage_module *module)
 }
 
 struct storage_module *
-storage_csv_create(const char *sensor_name, const char *output_dir)
+storage_csv_create(struct config *config)
 {
     struct storage_module *module = NULL;
     struct csv_context *ctx = NULL;
 
-    module = storage_module_create();
+    module = malloc(sizeof(struct storage_module));
     if (!module)
         goto error;
 
-    ctx = csv_context_create(sensor_name, output_dir);
+    ctx = csv_context_create(config->sensor.name, config->storage.U_flag);
     if (!ctx)
         goto error;
 
@@ -380,7 +381,7 @@ storage_csv_create(const char *sensor_name, const char *output_dir)
 
 error:
     csv_context_destroy(ctx);
-    storage_module_destroy(module);
+    free(module);
     return NULL;
 }
 

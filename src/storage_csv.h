@@ -34,6 +34,9 @@
 
 #include <czmq.h>
 
+#include "config.h"
+
+
 /*
  * CSV_PATH_BUFFER_SIZE stores the maximum length of a output dir path.
  */
@@ -66,7 +69,7 @@ struct csv_context
 /*
  * storage_csv_create creates and configure a csv storage module..
  */
-struct storage_module *storage_csv_create(const char *sensor_name, const char *output_dir);
+struct storage_module *storage_csv_create(struct config *config);
 
 #endif /* CSV_H */
 
