@@ -68,11 +68,6 @@ struct storage_module
 enum storage_type storage_module_get_type(const char *type_name);
 
 /*
- * storage_module_create allocate the required ressources for a storage module.
- */
-struct storage_module *storage_module_create();
-
-/*
  * storage_module_initialize initialize the storage module.
  */
 int storage_module_initialize(struct storage_module *module);

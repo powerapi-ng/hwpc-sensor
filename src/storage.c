@@ -50,17 +50,6 @@ storage_module_get_type(const char *type_name)
     return STORAGE_UNKNOWN;
 }
 
-struct storage_module *
-storage_module_create()
-{
-    struct storage_module *module = malloc(sizeof(struct storage_module));
-
-    if (!module)
-        return NULL;
-
-    return module;
-}
-
 int
 storage_module_initialize(struct storage_module *module)
 {
