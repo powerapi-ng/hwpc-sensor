@@ -32,4 +32,71 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <czmq.h>
+
+#include "events.h"
+#include "storage.h"
+
+/*
+ * config_sensor stores sensor specific config.
+ */
+struct config_sensor
+{
+    unsigned int verbose;
+    unsigned int frequency;
+    const char *cgroup_basepath;
+    const char *name;
+};
+
+/*
+ * config_storage stores storage specific config.
+ */
+struct config_storage
+{
+    enum storage_type type;
+    const char *U_flag;
+    const char *D_flag;
+    const char *C_flag;
+};
+
+/*
+ * config_events stores events specific config.
+ */
+struct config_events
+{
+    zhashx_t *system; /* char *group_name -> struct events_group *group */
+    zhashx_t *containers; /* char *group_name -> struct events_group *group */
+};
+
+/*
+ * config stores the application configuration.
+ */
+struct config
+{
+    struct config_sensor sensor;
+    struct config_storage storage;
+    struct config_events events;
+};
+
+/*
+ * config_create allocate the required resources and setup the default config.
+ */
+struct config *config_create();
+
+/*
+ * config_setup_from_cli parse the command-line options and setup the global config.
+ */
+int config_setup_from_cli(int argc, char **argv, struct config *config);
+
+/*
+ * config_validate check the validity of the given config.
+ */
+int config_validate(struct config *config);
+
+/*
+ * config_destroy free the allocated memory for the storage of the global config.
+ */
+void config_destroy(struct config *config);
+
 #endif /* CONFIG_H */
+
