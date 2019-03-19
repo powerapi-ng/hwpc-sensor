@@ -219,8 +219,7 @@ main(int argc, char **argv)
     /* setup storage module */
     storage = setup_storage_module(config);
     if (!storage) {
-	// TODO: get storage module name
-        zsys_error("sensor: failed to create %s storage module", "unkown:TODO");
+        zsys_error("sensor: failed to create '%s' storage module", storage_types_name[config->storage.type]);
         goto cleanup;
     }
     if (storage_module_initialize(storage)) {

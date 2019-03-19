@@ -48,6 +48,11 @@ enum storage_type
 };
 
 /*
+ * storage_types_name stores the name (as string) of the supported storage types.
+ */
+extern const char *storage_types_name[];
+
+/*
  * storage_module is a generic interface for storage modules.
  */
 struct storage_module

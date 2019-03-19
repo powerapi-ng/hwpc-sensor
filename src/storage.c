@@ -34,15 +34,23 @@
 
 #include "storage.h"
 
+const char *storage_types_name[] = {
+    [STORAGE_UNKNOWN] = "unknown",
+    [STORAGE_CSV] = "csv",
+#ifdef HAVE_MONGODB
+    [STORAGE_MONGODB] = "mongodb",
+#endif
+};
+
 enum storage_type
 storage_module_get_type(const char *type_name)
 {
-    if (strcasecmp(type_name, "csv") == 0) {
+    if (strcasecmp(type_name, storage_types_name[STORAGE_CSV]) == 0) {
         return STORAGE_CSV;
     }
 
 #ifdef HAVE_MONGODB
-    if (strcasecmp(type_name, "mongodb") == 0) {
+    if (strcasecmp(type_name, storage_types_name[STORAGE_MONGODB]) == 0) {
         return STORAGE_MONGODB;
     }
 #endif
