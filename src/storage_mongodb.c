@@ -226,16 +226,16 @@ mongodb_destroy(struct storage_module *module)
 }
 
 struct storage_module *
-storage_mongodb_create(const char *sensor_name, const char *uri, const char *database, const char *collection)
+storage_mongodb_create(struct config *config)
 {
     struct storage_module *module = NULL;
     struct mongodb_context *ctx = NULL;
 
-    module = storage_module_create();
+    module = malloc(sizeof(struct storage_module));
     if (!module)
         goto error;
 
-    ctx = mongodb_context_create(sensor_name, uri, database, collection);
+    ctx = mongodb_context_create(config->sensor.name, config->storage.U_flag, config->storage.D_flag, config->storage.C_flag);
     if (!ctx)
         goto error;
 
@@ -252,7 +252,7 @@ storage_mongodb_create(const char *sensor_name, const char *uri, const char *dat
 
 error:
     mongodb_context_destroy(ctx);
-    storage_module_destroy(module);
+    free(module);
     return NULL;
 }
 
