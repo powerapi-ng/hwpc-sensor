@@ -92,5 +92,6 @@ storage_module_destroy(struct storage_module *module)
         return;
 
     (*module->destroy)(module);
+    free(module);
 }
 
