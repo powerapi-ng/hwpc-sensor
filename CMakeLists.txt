@@ -15,7 +15,7 @@ pkg_check_modules(CZMQ REQUIRED libczmq)
 
 set(SENSOR_SOURCES
     src/version.h
-    src/config.h
+    src/config.h src/config.c
     src/util.h src/util.c
     src/target.h src/target.c
     src/target_docker.h src/target_docker.c
