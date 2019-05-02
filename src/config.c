@@ -171,7 +171,7 @@ config_setup_from_cli(int argc, char **argv, struct config *config)
 		    goto end;
 		}
 		if (events_group_append_event(current_events_group, optarg)) {
-		    zsys_error("config: storage module '%s' is invalid or disabled at compile time", optarg);
+		    zsys_error("config: event '%s' is invalid or unsupported by this machine", optarg);
 		    goto end;
 		}
 		break;
