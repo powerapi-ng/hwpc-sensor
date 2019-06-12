@@ -48,7 +48,8 @@ const char *target_types_name[] = {
     [TARGET_TYPE_KERNEL] = "kernel",
     [TARGET_TYPE_DOCKER] = "docker",
     [TARGET_TYPE_KUBERNETES] = "k8s",
-    [TARGET_TYPE_LIBVIRT] = "libvirt"
+    [TARGET_TYPE_LIBVIRT] = "libvirt",
+    [TARGET_TYPE_LXC] = "lxc"
 };
 
 enum target_type
@@ -77,6 +78,10 @@ target_detect_type(const char *cgroup_path)
     /* LibVirt (running virtual machine) */
     if (strstr(cgroup_path, "perf_event/machine.slice"))
         return TARGET_TYPE_LIBVIRT;
+
+    /* LXC (running containers) */
+    if (strstr(cgroup_path, "perf_event/lxc"))
+	return TARGET_TYPE_LXC;
 
     return TARGET_TYPE_UNKNOWN;
 }
