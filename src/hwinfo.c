@@ -114,7 +114,7 @@ get_package_id(const char *cpu_dir)
     f = fopen(path, "r");
     if (f) {
         if (fgets(buffer, sizeof(buffer), f)) {
-            id = strndup(buffer, sizeof(buffer));
+            id = strndup(buffer, strlen(buffer) - 1);
         }
         fclose(f);
     }
