@@ -115,6 +115,8 @@ get_package_id(const char *cpu_dir)
     if (f) {
         if (fgets(buffer, sizeof(buffer), f)) {
             id = strndup(buffer, sizeof(buffer));
+            /* Removes trailing `\n` character (which would break csv output) :*/
+            id[strcspn(id, "\n")] = 0;
         }
         fclose(f);
     }
@@ -193,6 +195,7 @@ do_packages_detection(struct hwinfo *hwinfo)
                 pkg = zhashx_lookup(hwinfo->pkgs, pkg_id); /* get the copy the pkg done by zhashx_insert */
             }
 
+            zsys_info("hwinfo: found cpu  '%s' id : '%s' for pkg '%s' ", entry->d_name, cpu_id, pkg_id);
             zlistx_add_end(pkg->cpus_id, cpu_id);
 
             free(cpu_id);
