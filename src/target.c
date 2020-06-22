@@ -105,7 +105,7 @@ target_validate_type(enum target_type type, const char *cgroup_path)
 }
 
 struct target *
-target_create(enum target_type type, const char *cgroup_path)
+target_create(enum target_type type, const char *cgroup_path, bool resolve_name)
 {
     struct target *target = malloc(sizeof(struct target));
 
@@ -114,6 +114,7 @@ target_create(enum target_type type, const char *cgroup_path)
 
     target->cgroup_path = (cgroup_path) ? strdup(cgroup_path) : NULL;
     target->type = type;
+    target->resolve_name = resolve_name;
 
     return target;
 }
@@ -123,11 +124,19 @@ target_resolve_real_name(struct target *target)
 {
     switch (target->type) {
         case TARGET_TYPE_DOCKER:
-            return target_docker_resolve_name(target);
+            if (target->resolve_name ) {
+                return target_docker_resolve_name(target);
+            } else {
+                return strdup(strrchr(target->cgroup_path, '/') + 1);
+            }
             break;
 
         case TARGET_TYPE_KUBERNETES:
-            return target_kubernetes_resolve_name(target);
+            if (target->resolve_name ) {
+                return target_kubernetes_resolve_name(target);
+            } else {
+                return strdup(strrchr(target->cgroup_path, '/') + 1);
+            }
             break;
 
         case TARGET_TYPE_ALL:
@@ -154,7 +163,7 @@ target_destroy(struct target *target)
 }
 
 int
-target_discover_running(const char *base_path, enum target_type type_mask, zhashx_t *targets)
+target_discover_running(const char *base_path, enum target_type type_mask, bool resolve_name, zhashx_t *targets)
 {
     const char *path[] = { base_path, NULL };
     FTS *file_system = NULL;
@@ -174,7 +183,7 @@ target_discover_running(const char *base_path, enum target_type type_mask, zhash
         if (node->fts_info == FTS_D && node->fts_statp->st_nlink == 2) {
             type = target_detect_type(node->fts_path);
             if ((type & type_mask) && target_validate_type(type, node->fts_path)) {
-                target = target_create(type, node->fts_path);
+                target = target_create(type, node->fts_path, resolve_name);
                 if (target)
                     zhashx_insert(targets, node->fts_path, target);
             }
