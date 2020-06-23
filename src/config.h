@@ -45,6 +45,7 @@ struct config_sensor
     unsigned int verbose;
     unsigned int frequency;
     const char *cgroup_basepath;
+    bool resolve_names;
     const char *name;
 };
 

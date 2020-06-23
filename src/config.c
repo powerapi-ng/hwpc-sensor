@@ -53,6 +53,7 @@ config_create()
     config->sensor.frequency = 1000;
     config->sensor.cgroup_basepath = "/sys/fs/cgroup/perf_event";
     config->sensor.name = NULL;
+    config->sensor.resolve_names = true;
 
     /* storage default config */
     config->storage.type = STORAGE_CSV;
@@ -121,8 +122,11 @@ config_setup_from_cli(int argc, char **argv, struct config *config)
     zhashx_set_duplicator(config->events.containers, (zhashx_duplicator_fn *) events_group_dup);
     zhashx_set_destructor(config->events.containers, (zhashx_destructor_fn *) events_group_destroy);
 
-    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:or:U:D:C:")) != -1) {
+    while ((c = getopt(argc, argv, "ivf:p:n:s:c:e:or:U:D:C:")) != -1) {
 	switch (c) {
+	    case 'i':
+		config->sensor.resolve_names = false;
+		break;
 	    case 'v':
 		config->sensor.frequency++;
 		break;

@@ -78,7 +78,7 @@ setup_storage_module(struct config *config)
 }
 
 static void
-sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events_groups, const char *cgroup_basepath, zhashx_t *container_monitoring_actors)
+sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events_groups, const char *cgroup_basepath, bool resolve_name, zhashx_t *container_monitoring_actors)
 {
     zhashx_t *running_targets = NULL; /* char *cgroup_path -> struct target *target */
     zactor_t *perf_monitor = NULL;
@@ -90,7 +90,7 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     running_targets = zhashx_new();
 
     /* get running (and identifiable) container(s) */
-    if (target_discover_running(cgroup_basepath, TARGET_TYPE_EVERYTHING ^ TARGET_TYPE_UNKNOWN, running_targets)) {
+    if (target_discover_running(cgroup_basepath, TARGET_TYPE_EVERYTHING ^ TARGET_TYPE_UNKNOWN, resolve_name, running_targets)) {
         zsys_error("sensor: error when retrieving the running targets.");
         goto out;
     }
@@ -245,7 +245,7 @@ main(int argc, char **argv)
 
     /* start system monitoring actor only when needed */
     if (zhashx_size(config->events.system)) {
-        system_target = target_create(TARGET_TYPE_ALL, NULL);
+        system_target = target_create(TARGET_TYPE_ALL, NULL, config->sensor.resolve_names);
         system_monitor_config = perf_config_create(hwinfo, config->events.system, system_target);
         system_perf_monitor = zactor_new(perf_monitoring_actor, system_monitor_config);
     }
@@ -256,7 +256,7 @@ main(int argc, char **argv)
     while (!zsys_interrupted) {
         /* monitor containers only when needed */
         if (zhashx_size(config->events.containers)) {
-            sync_cgroups_running_monitored(hwinfo, config->events.containers, config->sensor.cgroup_basepath, container_monitoring_actors);
+            sync_cgroups_running_monitored(hwinfo, config->events.containers, config->sensor.cgroup_basepath, config->sensor.resolve_names , container_monitoring_actors);
         }
 
         /* send clock tick to monitoring actors */

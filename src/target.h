@@ -62,6 +62,7 @@ struct target
 {
     enum target_type type;
     char *cgroup_path;
+    bool resolve_name;
 };
 
 /*
@@ -77,7 +78,7 @@ int target_validate_type(enum target_type type, const char *cgroup_path);
 /*
  * target_create allocate the resources and configure the target.
  */
-struct target *target_create(enum target_type type, const char *cgroup_path);
+struct target *target_create(enum target_type type, const char *cgroup_path, bool resolve_name);
 
 /*
  * target_resolve_real_name resolve and return the real name of the given target.
@@ -92,7 +93,7 @@ void target_destroy(struct target *target);
 /*
  * target_discover_running returns a list of running targets.
  */
-int target_discover_running(const char *base_path, enum target_type type_mask, zhashx_t *targets);
+int target_discover_running(const char *base_path, enum target_type type_mask, bool resolve_name, zhashx_t *targets);
 
 #endif /* TARGET_H */
 
