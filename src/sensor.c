@@ -245,7 +245,7 @@ main(int argc, char **argv)
 
     /* start system monitoring actor only when needed */
     if (zhashx_size(config->events.system)) {
-        system_target = target_create(TARGET_TYPE_ALL, NULL);
+        system_target = target_create(TARGET_TYPE_ALL, NULL, NULL);
         system_monitor_config = perf_config_create(hwinfo, config->events.system, system_target);
         system_perf_monitor = zactor_new(perf_monitoring_actor, system_monitor_config);
     }

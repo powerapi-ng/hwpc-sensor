@@ -105,13 +105,14 @@ target_validate_type(enum target_type type, const char *cgroup_path)
 }
 
 struct target *
-target_create(enum target_type type, const char *cgroup_path)
+target_create(enum target_type type, const char *cgroup_basedir, const char *cgroup_path)
 {
     struct target *target = malloc(sizeof(struct target));
 
     if (!target)
         return NULL;
 
+    target->cgroup_basedir = cgroup_basedir;
     target->cgroup_path = (cgroup_path) ? strdup(cgroup_path) : NULL;
     target->type = type;
 
@@ -121,26 +122,34 @@ target_create(enum target_type type, const char *cgroup_path)
 char *
 target_resolve_real_name(struct target *target)
 {
+    char *target_real_name = NULL;
+
     switch (target->type) {
         case TARGET_TYPE_DOCKER:
-            return target_docker_resolve_name(target);
+            target_real_name = target_docker_resolve_name(target);
             break;
 
         case TARGET_TYPE_KUBERNETES:
-            return target_kubernetes_resolve_name(target);
+            target_real_name = target_kubernetes_resolve_name(target);
             break;
 
         case TARGET_TYPE_ALL:
         case TARGET_TYPE_KERNEL:
         case TARGET_TYPE_SYSTEM:
             /* the above types have static name */
-            return strdup(target_types_name[target->type]);
+            target_real_name = strdup(target_types_name[target->type]);
             break;
 
         default:
-            /* return the basename of the cgroup path */
-            return strdup(strrchr(target->cgroup_path, '/') + 1);
+            break;
     }
+
+    /* if name cannot be resolved, use the cgroup path relative to cgroup base dir */
+    if (!target_real_name && target->cgroup_path && target->cgroup_basedir) {
+        target_real_name = strdup(target->cgroup_path + strlen(target->cgroup_basedir));
+    }
+
+    return target_real_name;
 }
 
 void
@@ -174,7 +183,7 @@ target_discover_running(const char *base_path, enum target_type type_mask, zhash
         if (node->fts_info == FTS_D && node->fts_statp->st_nlink == 2) {
             type = target_detect_type(node->fts_path);
             if ((type & type_mask) && target_validate_type(type, node->fts_path)) {
-                target = target_create(type, node->fts_path);
+                target = target_create(type, base_path, node->fts_path);
                 if (target)
                     zhashx_insert(targets, node->fts_path, target);
             }
