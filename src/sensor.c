@@ -262,7 +262,7 @@ main(int argc, char **argv)
         /* send clock tick to monitoring actors */
         zsock_send(ticker, "s8", "CLOCK_TICK", zclock_time());
 
-        zclock_sleep(config->sensor.frequency);
+        zclock_sleep((int)config->sensor.frequency);
     }
 
     /* clean storage module ressources */

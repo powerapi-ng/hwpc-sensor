@@ -82,7 +82,7 @@ parse_frequency(const char *str, unsigned int *frequency)
     }
 
     /* check if the extracted value fit in the destination type before casting */
-    if (value < 0u || value > UINT_MAX) {
+    if (value < 0U || value > UINT_MAX) {
 	return -1;
     }
 
