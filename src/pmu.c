@@ -113,7 +113,7 @@ pmu_topology_detect(struct pmu_topology *topology)
     pfm_pmu_t pmu = {0};
     pfm_pmu_info_t pmu_info = {0};
 
-    pfm_for_all_pmus(pmu) {
+    for (pmu = PFM_PMU_NONE; pmu < PFM_PMU_MAX; pmu++) {
         if (pfm_get_pmu_info(pmu, &pmu_info) != PFM_SUCCESS)
             continue;
 
