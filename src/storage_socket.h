@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2018, INRIA
- *  Copyright (c) 2018, University of Lille
+ *  Copyright (c) 2021, INRIA
+ *  Copyright (c) 2021, University of Lille
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -29,75 +29,39 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef STORAGE_SOCKET_H
+#define STORAGE_SOCKET_H
 
-#include <czmq.h>
+#include <sys/socket.h>
+#include <netinet/in.h> 
 
-#include "events.h"
 #include "storage.h"
+#include "config.h"
+
 
 /*
- * config_sensor stores sensor specific config.
+ * socket_config stores the required information for the module.
  */
-struct config_sensor
+struct socket_config
 {
-    unsigned int verbose;
-    unsigned int frequency;
-    const char *cgroup_basepath;
-    const char *name;
+    const char *sensor_name;
+    const char *address;
+    int port;
 };
 
 /*
- * config_storage stores storage specific config.
+ * socket_context stores the context of the module.
  */
-struct config_storage
+struct socket_context
 {
-    enum storage_type type;
-    const char *U_flag;
-    const char *D_flag;
-    const char *C_flag;
-    int P_flag;
+    struct socket_config config;
+    struct sockaddr_in address;
+    int socket;
 };
 
 /*
- * config_events stores events specific config.
+ * storage_socket_create creates and configure a socket storage module.
  */
-struct config_events
-{
-    zhashx_t *system; /* char *group_name -> struct events_group *group */
-    zhashx_t *containers; /* char *group_name -> struct events_group *group */
-};
+struct storage_module *storage_socket_create(struct config *config);
 
-/*
- * config stores the application configuration.
- */
-struct config
-{
-    struct config_sensor sensor;
-    struct config_storage storage;
-    struct config_events events;
-};
-
-/*
- * config_create allocate the required resources and setup the default config.
- */
-struct config *config_create();
-
-/*
- * config_setup_from_cli parse the command-line options and setup the global config.
- */
-int config_setup_from_cli(int argc, char **argv, struct config *config);
-
-/*
- * config_validate check the validity of the given config.
- */
-int config_validate(struct config *config);
-
-/*
- * config_destroy free the allocated memory for the storage of the global config.
- */
-void config_destroy(struct config *config);
-
-#endif /* CONFIG_H */
-
+#endif /* STORAGE_SOCKET_H */

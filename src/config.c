@@ -121,7 +121,7 @@ config_setup_from_cli(int argc, char **argv, struct config *config)
     zhashx_set_duplicator(config->events.containers, (zhashx_duplicator_fn *) events_group_dup);
     zhashx_set_destructor(config->events.containers, (zhashx_destructor_fn *) events_group_destroy);
 
-    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:or:U:D:C:")) != -1) {
+    while ((c = getopt(argc, argv, "vf:p:n:s:c:e:or:U:D:C:P:")) != -1) {
 	switch (c) {
 	    case 'v':
 		config->sensor.frequency++;
@@ -191,6 +191,13 @@ config_setup_from_cli(int argc, char **argv, struct config *config)
 	    case 'C':
 		config->storage.C_flag = optarg;
 		break;
+	    case 'P':
+	        config->storage.P_flag = atoi(optarg);
+		if(config->storage.P_flag == 0){
+		    zsys_error("config:  '%s' is not a valid port number", optarg);
+		    goto end;
+		}
+		break;
 	    default:
 		print_usage();
 		goto end;
@@ -225,6 +232,11 @@ config_validate(struct config *config)
 	return -1;
     }
 
+    if (storage->type == STORAGE_SOCKET && (!storage->U_flag || !storage->P_flag)) {
+	zsys_error("config: the socket storage module requires the 'U' and 'P' flags to be set");
+	return -1;
+    }
+
 #ifdef HAVE_MONGODB
     if (storage->type == STORAGE_MONGODB && (!storage->U_flag || !storage->D_flag || !storage->C_flag)) {
 	zsys_error("config: the MongoDB storage module requires the 'U', 'D' and 'C' flags to be set");
@@ -245,4 +257,3 @@ config_destroy(struct config *config)
     zhashx_destroy(&config->events.system);
     free(config);
 }
-

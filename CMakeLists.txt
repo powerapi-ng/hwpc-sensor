@@ -10,6 +10,7 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fsanitize=address,undefined
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_FORTIFY_SOURCE=2")
 
 find_package(PkgConfig)
+pkg_check_modules(BSON REQUIRED libbson-1.0)
 pkg_check_modules(CZMQ REQUIRED libczmq)
 #pkg_check_modules(PFM REQUIRED libpfm)
 
@@ -27,6 +28,7 @@ set(SENSOR_SOURCES
     src/report.h src/report.c
     src/perf.h src/perf.c
     src/storage.h src/storage.c
+    src/storage_socket.h src/storage_socket.c
     src/storage_csv.h src/storage_csv.c
     src/sensor.c
 )
@@ -50,7 +52,11 @@ if(DEFINED ENV{GIT_TAG} AND DEFINED ENV{GIT_REV})
 endif()
 
 add_executable(hwpc-sensor "${SENSOR_SOURCES}")
+
 target_include_directories(hwpc-sensor PRIVATE "${SENSOR_INCLUDES}")
 target_compile_definitions(hwpc-sensor PRIVATE "${SENSOR_DEFINITIONS}")
 target_link_libraries(hwpc-sensor "${SENSOR_LIBRARIES}")
 
+target_include_directories (hwpc-sensor PRIVATE ${BSON_INCLUDE_DIRS})
+target_link_libraries (hwpc-sensor PRIVATE ${BSON_LIBRARIES})
+target_compile_definitions (hwpc-sensor PRIVATE ${BSON_DEFINITIONS})
