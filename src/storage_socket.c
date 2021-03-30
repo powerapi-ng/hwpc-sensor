@@ -213,6 +213,9 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     bson_append_document_end(&document, &doc_groups);
 
     buffer = bson_as_json (&document, &length);
+    /* buffer[length] = '\r'; */
+    /* buffer[length + 1] = '\n'; */
+    /* buffer[length + 2] = '\0'; */
     if(buffer == NULL){
       zsys_error("socket: failed convert report to json");
         ret = -1;
