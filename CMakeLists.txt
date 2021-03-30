@@ -10,8 +10,8 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fsanitize=address,undefined
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_FORTIFY_SOURCE=2")
 
 find_package(PkgConfig)
-pkg_check_modules(BSON REQUIRED libbson-1.0)
-pkg_check_modules(CZMQ REQUIRED libczmq)
+pkg_check_modules(BSON_STATIC REQUIRED libbson-1.0)
+pkg_check_modules(CZMQ_STATIC REQUIRED libczmq)
 #pkg_check_modules(PFM REQUIRED libpfm)
 
 set(SENSOR_SOURCES
@@ -33,9 +33,9 @@ set(SENSOR_SOURCES
     src/sensor.c
 )
 
-set(SENSOR_INCLUDES "${CZMQ_INCLUDE_DIRS}")
-set(SENSOR_DEFINITIONS "${CZMQ_DEFINITIONS}")
-set(SENSOR_LIBRARIES "${CZMQ_LIBRARIES}" pfm)
+set(SENSOR_INCLUDES "${CZMQ_STATIC_INCLUDE_DIRS}")
+set(SENSOR_DEFINITIONS "${CZMQ_STATIC_DEFINITIONS}")
+set(SENSOR_LIBRARIES "${CZMQ_STATIC_LIBRARIES}" pfm)
 
 if(WITH_MONGODB)
     pkg_check_modules(BSON REQUIRED libbson-1.0)
@@ -51,12 +51,13 @@ if(DEFINED ENV{GIT_TAG} AND DEFINED ENV{GIT_REV})
     add_definitions(-DVERSION_GIT_TAG="$ENV{GIT_TAG}" -DVERSION_GIT_REV="$ENV{GIT_REV}")
 endif()
 
+
 add_executable(hwpc-sensor "${SENSOR_SOURCES}")
 
 target_include_directories(hwpc-sensor PRIVATE "${SENSOR_INCLUDES}")
 target_compile_definitions(hwpc-sensor PRIVATE "${SENSOR_DEFINITIONS}")
 target_link_libraries(hwpc-sensor "${SENSOR_LIBRARIES}")
 
-target_include_directories (hwpc-sensor PRIVATE ${BSON_INCLUDE_DIRS})
-target_link_libraries (hwpc-sensor PRIVATE ${BSON_LIBRARIES})
-target_compile_definitions (hwpc-sensor PRIVATE ${BSON_DEFINITIONS})
+target_include_directories (hwpc-sensor PRIVATE ${BSON_STATIC_INCLUDE_DIRS})
+target_link_libraries (hwpc-sensor PRIVATE ${BSON_STATIC_LIBRARIES})
+target_compile_definitions (hwpc-sensor PRIVATE ${BSON_STATIC_DEFINITIONS})
