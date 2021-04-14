@@ -1,9 +1,0 @@
-Package: hwpc-sensor
-Version: 1.0
-Section: custom
-Priority: optional
-Architecture: all
-Essential: no
-Maintainer: powerapi@inria.fr
-Depends: libczmq4, libbson-1.0
-Description: Software agent (sensor) for monitoring Hardware Performance Counters on Linux

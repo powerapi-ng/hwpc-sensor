@@ -127,8 +127,7 @@ void timestamp_to_iso_date(unsigned long int timestamp, char * time_buffer, int 
     time_buffer[len] = ((timestamp % 1000 - (timestamp % 100)) / 100) + 48;
     time_buffer[len + 1] = ((timestamp % 100 - (timestamp % 10)) / 10) + 48;
     time_buffer[len + 2] = (timestamp % 10) + 48;
-    time_buffer[len + 3] = 'Z';
-    time_buffer[len + 4] = '\0';
+    time_buffer[len + 3] = '\0';
 }
 
 static int
