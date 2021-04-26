@@ -48,6 +48,7 @@
 #include "storage.h"
 #include "storage_csv.h"
 #include "storage_socket.h"
+#include "storage_daemon.h"
 
 #ifdef HAVE_MONGODB
 #include "storage_mongodb.h"
@@ -68,9 +69,11 @@ setup_storage_module(struct config *config)
     switch (config->storage.type)
     {
         case STORAGE_CSV:
-            return storage_csv_create(config);
+	    return storage_csv_create(config);
         case STORAGE_SOCKET:
-            return storage_socket_create(config);
+	    return storage_socket_create(config);
+        case STORAGE_DAEMON:
+	    return storage_daemon_create(config);
 #ifdef HAVE_MONGODB
         case STORAGE_MONGODB:
             return storage_mongodb_create(config);
