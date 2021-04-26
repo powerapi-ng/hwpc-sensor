@@ -38,7 +38,7 @@ const char *storage_types_name[] = {
     [STORAGE_UNKNOWN] = "unknown",
     [STORAGE_CSV] = "csv",
     [STORAGE_SOCKET] = "socket",
-    [STORAGE_DEAMON] = "deamon",
+    [STORAGE_DAEMON] = "daemon",
 #ifdef HAVE_MONGODB
     [STORAGE_MONGODB] = "mongodb",
 #endif
@@ -55,8 +55,8 @@ storage_module_get_type(const char *type_name)
         return STORAGE_SOCKET;
     }
 
-    if (strcasecmp(type_name, storage_types_name[STORAGE_DEAMON]) == 0) {
-	return STORAGE_DEAMON;
+    if (strcasecmp(type_name, storage_types_name[STORAGE_DAEMON]) == 0) {
+	return STORAGE_DAEMON;
     }
 
 #ifdef HAVE_MONGODB

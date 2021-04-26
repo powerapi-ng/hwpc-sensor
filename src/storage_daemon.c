@@ -35,17 +35,17 @@
 #include <signal.h>
 
 #include "report.h"
-#include "storage_deamon.h"
+#include "storage_daemon.h"
 #include "perf.h"
 
 #include <pthread.h>
 
-pthread_mutex_t __deamon_mutex__ = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t __daemon_mutex__ = PTHREAD_MUTEX_INITIALIZER;
 
-static struct deamon_context*
-deamon_context_create(const char *sensor_name, int port)
+static struct daemon_context*
+daemon_context_create(const char *sensor_name, int port)
 {
-    struct deamon_context *ctx = malloc (sizeof(struct deamon_context));
+    struct daemon_context *ctx = malloc (sizeof(struct daemon_context));
 
     if (!ctx)
         return NULL;
@@ -60,12 +60,12 @@ deamon_context_create(const char *sensor_name, int port)
 }
 
 static void
-deamon_context_destroy(struct deamon_context *ctx)
+daemon_context_destroy(struct daemon_context *ctx)
 {
     if (!ctx)
         return;
 
-    pthread_mutex_lock (&__deamon_mutex__);    
+    pthread_mutex_lock (&__daemon_mutex__);    
     
     if (ctx-> server) {
 	close (ctx-> server);
@@ -79,16 +79,16 @@ deamon_context_destroy(struct deamon_context *ctx)
     
 //end:
     
-    pthread_mutex_unlock (&__deamon_mutex__);        
+    pthread_mutex_unlock (&__daemon_mutex__);        
     free (ctx);
 }
 
 
 void*
-deamon_accept_loop (void* data)
+daemon_accept_loop (void* data)
 {
-    zsys_info ("deamon: accept loop start");
-    struct deamon_context *ctx = (struct deamon_context *) data;
+    zsys_info ("daemon: accept loop start");
+    struct daemon_context *ctx = (struct daemon_context *) data;
     while (true) {
 	struct sockaddr_in clientAddr;
 	socklen_t len = sizeof (struct sockaddr_in);
@@ -97,25 +97,25 @@ deamon_accept_loop (void* data)
 	if (client < 0) 
 	    break ;
 	
-	pthread_mutex_lock (&__deamon_mutex__);
+	pthread_mutex_lock (&__daemon_mutex__);
 
 	if (ctx-> nb_clients < 255) {
-	    zsys_info ("deamon: new client");
+	    zsys_info ("daemon: new client");
 	    ctx-> clients [ctx-> nb_clients] = client;
 	    ctx-> nb_clients = ctx-> nb_clients + 1;
 	}
 	
-	pthread_mutex_unlock (&__deamon_mutex__);	
+	pthread_mutex_unlock (&__daemon_mutex__);	
     }
     
     return NULL;
 }
 
 static int
-deamon_spawn_accepting_thread (struct deamon_context *ctx)
+daemon_spawn_accepting_thread (struct daemon_context *ctx)
 {
-    pthread_mutex_init (&__deamon_mutex__, NULL);
-    if (pthread_create (&ctx-> tid, NULL, deamon_accept_loop, ctx) != 0) {
+    pthread_mutex_init (&__daemon_mutex__, NULL);
+    if (pthread_create (&ctx-> tid, NULL, daemon_accept_loop, ctx) != 0) {
 	return -1;
     }
     
@@ -124,7 +124,7 @@ deamon_spawn_accepting_thread (struct deamon_context *ctx)
 
 
 static int
-addr_init(struct deamon_config config, struct sockaddr_in *addr)
+addr_init(struct daemon_config config, struct sockaddr_in *addr)
 {
     addr-> sin_family = AF_INET;
     addr-> sin_port = htons (config.port);
@@ -132,9 +132,9 @@ addr_init(struct deamon_config config, struct sockaddr_in *addr)
 }
 
 static int
-deamon_initialize(struct storage_module *module)
+daemon_initialize(struct storage_module *module)
 {
-    struct deamon_context *ctx = module-> context;
+    struct daemon_context *ctx = module-> context;
 
     struct sigaction sa;
     sa.sa_handler = SIG_IGN;
@@ -144,28 +144,28 @@ deamon_initialize(struct storage_module *module)
         return -1;
 
     if (addr_init(ctx-> config, &(ctx-> address)) == -1) {
-	zsys_error("deamon: failed to parse uri: %s", "0.0.0.0");
+	zsys_error("daemon: failed to parse uri: %s", "0.0.0.0");
 	goto error;
     }
 
     ctx-> server = socket(PF_INET, SOCK_STREAM, 0); // PF_INET ??
     if (ctx-> server == -1) {
-	zsys_error("deamon: failed to create socket");
+	zsys_error("daemon: failed to create socket");
 	goto error;
     }
 
     if (bind(ctx-> server, (struct sockaddr *)&(ctx-> address), sizeof (ctx-> address)) == -1) {
-	zsys_error("deamon: unable to bind %s", ctx-> config.port);
+	zsys_error("daemon: unable to bind");
 	goto error;
     }
     
     if (listen(ctx-> server, 5) != 0) {
-	zsys_error("deamon: failed to listen to socket");
+	zsys_error("daemon: failed to listen to socket");
 	goto error;
     }
 
-    if (deamon_spawn_accepting_thread (ctx) == -1) {
-	zsys_error("deamon: failed to spawn thread");
+    if (daemon_spawn_accepting_thread (ctx) == -1) {
+	zsys_error("daemon: failed to spawn thread");
 	goto error;
     }
 
@@ -180,7 +180,7 @@ error:
 }
 
 static int
-deamon_ping(struct storage_module *module)
+daemon_ping(struct storage_module *module)
 {
     if (module-> context != NULL)
         return 0;
@@ -190,10 +190,10 @@ deamon_ping(struct storage_module *module)
 void timestamp_to_iso_date(unsigned long int timestamp, char * time_buffer, int max_size);
 
 static void
-deamon_close_client(struct deamon_context *ctx, int i)
+daemon_close_client(struct daemon_context *ctx, int i)
 { // assume that mutex is already locked by send_document
     close (ctx-> clients [i]);
-    zsys_info ("deamon: closing client");
+    zsys_info ("daemon: closing client");
     for (int j = i ; j < ctx-> nb_clients - 1; j ++) {
 	ctx-> clients [j] = ctx-> clients [j + 1];
     }
@@ -202,28 +202,28 @@ deamon_close_client(struct deamon_context *ctx, int i)
 }
 
 static int
-deamon_send_document(struct deamon_context *ctx, char *buffer, size_t length)
+daemon_send_document(struct daemon_context *ctx, char *buffer, size_t length)
 {
     int code = 0;
-    pthread_mutex_lock (&__deamon_mutex__);
+    pthread_mutex_lock (&__daemon_mutex__);
 
     for (int i = 0 ; i < ctx-> nb_clients; i ++) {
 	if (write(ctx->clients [i], buffer, length) != (ssize_t) length) {
 	    code = -1;
-	    deamon_close_client(ctx, i);
+	    daemon_close_client(ctx, i);
 	}
     }
     
 //end:
-    pthread_mutex_unlock (&__deamon_mutex__);
+    pthread_mutex_unlock (&__daemon_mutex__);
 
     return code;
 }
 
 static int
-deamon_store_report(struct storage_module *module, struct payload *payload)
+daemon_store_report(struct storage_module *module, struct payload *payload)
 {
-    struct deamon_context *ctx = module->context;
+    struct daemon_context *ctx = module->context;
     bson_t document = BSON_INITIALIZER;
     bson_t doc_groups;
     struct payload_group_data *group_data = NULL;
@@ -306,13 +306,13 @@ deamon_store_report(struct storage_module *module, struct payload *payload)
     /* buffer[length + 1] = '\n'; */
     /* buffer[length + 2] = '\0'; */
     if(buffer == NULL){
-      zsys_error("deamon: failed convert report to json");
+      zsys_error("daemon: failed convert report to json");
         ret = -1;
     }
     
 
-    if (deamon_send_document (ctx, buffer, length) == -1) {
-	zsys_error("deamon: failed insert timestamp=%lu target=%s: %s", payload->timestamp, payload->target_name, error.message);
+    if (daemon_send_document (ctx, buffer, length) == -1) {
+	zsys_error("daemon: failed insert timestamp=%lu target=%s: %s", payload->timestamp, payload->target_name, error.message);
         ret = -1;
     }
     
@@ -322,13 +322,13 @@ deamon_store_report(struct storage_module *module, struct payload *payload)
        
 
 static int
-deamon_deinitialize(struct storage_module *module)
+daemon_deinitialize(struct storage_module *module)
 {
-    struct deamon_context *ctx = module-> context;
+    struct daemon_context *ctx = module-> context;
     if (!module-> is_initialized)
         return -1;
 
-    pthread_mutex_lock (&__deamon_mutex__);    
+    pthread_mutex_lock (&__daemon_mutex__);    
     
     if (ctx-> server) {
 	close (ctx-> server);
@@ -340,49 +340,49 @@ deamon_deinitialize(struct storage_module *module)
 
     pthread_cancel (ctx-> tid);
     
-    pthread_mutex_unlock (&__deamon_mutex__);        
+    pthread_mutex_unlock (&__daemon_mutex__);        
     
     return 0;
 }
 
 static void
-deamon_destroy(struct storage_module *module)
+daemon_destroy(struct storage_module *module)
 {
     if (!module)
         return ;
 
-    deamon_context_destroy(module-> context);
+    daemon_context_destroy(module-> context);
 }
 
 
 struct storage_module *
-storage_deamon_create(struct config *config)
+storage_daemon_create(struct config *config)
 {
     struct storage_module *module = NULL;
-    struct deamon_context *ctx = NULL;
+    struct daemon_context *ctx = NULL;
 
     module = malloc(sizeof(struct storage_module));
     if (!module)
         goto error;
 
-    ctx = deamon_context_create(config-> sensor.name, config-> storage.P_flag);
+    ctx = daemon_context_create(config-> sensor.name, config-> storage.P_flag);
     if (!ctx)
         goto error;
 
-    module-> type = STORAGE_DEAMON;
+    module-> type = STORAGE_DAEMON;
     module-> context = ctx;
     module-> is_initialized = false;
-    module-> initialize = deamon_initialize;
-    module-> ping = deamon_ping;
-    module-> store_report = deamon_store_report;
-    module-> deinitialize = deamon_deinitialize;
-    module-> destroy = deamon_destroy;
+    module-> initialize = daemon_initialize;
+    module-> ping = daemon_ping;
+    module-> store_report = daemon_store_report;
+    module-> deinitialize = daemon_deinitialize;
+    module-> destroy = daemon_destroy;
 
     return module;
 
 error:
 
-    deamon_context_destroy(ctx);
+    daemon_context_destroy(ctx);
     if (module)
         free(module);
     

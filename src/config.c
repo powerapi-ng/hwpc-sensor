@@ -237,8 +237,8 @@ config_validate(struct config *config)
 	return -1;
     }
 
-    if (storage-> type == STORAGE_DEAMON && (!storage-> P_flag)) {
-	zsys_error ("config: the deamon storage module requires the 'P' flag to be set");
+    if (storage-> type == STORAGE_DAEMON && (!storage-> P_flag)) {
+	zsys_error ("config: the daemon storage module requires the 'P' flag to be set");
 	return -1;
     }
 

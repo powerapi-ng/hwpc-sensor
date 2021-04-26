@@ -29,7 +29,7 @@ set(SENSOR_SOURCES
     src/perf.h src/perf.c
     src/storage.h src/storage.c
     src/storage_socket.h src/storage_socket.c
-    src/storage_deamon.h src/storage_deamon.c
+    src/storage_daemon.h src/storage_daemon.c
     src/storage_csv.h src/storage_csv.c
     src/sensor.c
 )

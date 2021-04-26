@@ -43,7 +43,7 @@ enum storage_type
     STORAGE_UNKNOWN,
     STORAGE_CSV,
     STORAGE_SOCKET,
-    STORAGE_DEAMON,
+    STORAGE_DAEMON,
 #ifdef HAVE_MONGODB
     STORAGE_MONGODB,
 #endif

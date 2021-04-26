@@ -29,8 +29,8 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STORAGE_DEAMON_H
-#define STORAGE_DEAMON_H
+#ifndef STORAGE_DAEMON_H
+#define STORAGE_DAEMON_H
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -39,19 +39,19 @@
 #include "storage.h"
 #include "config.h"
 
-struct deamon_config {
+struct daemon_config {
     const char* sensor_name;
     int port;
 };
 
 /**
- * deamon_context stores the context of the module
+ * daemon_context stores the context of the module
  * the server is the listening socket
  * clients is the list of socket connected to the server (max 255 connection, in nb_clients)
  * tid the id of the thread accepting connection
  */
-struct deamon_context {
-    struct deamon_config config;
+struct daemon_context {
+    struct daemon_config config;
     struct sockaddr_in address;
 
     pthread_t tid;    
@@ -61,9 +61,9 @@ struct deamon_context {
 };
 
 /**
- * storage_deamon_create creates and configure a deamon storage module
+ * storage_daemon_create creates and configure a daemon storage module
  */
-struct storage_module *storage_deamon_create(struct config* config);
+struct storage_module *storage_daemon_create(struct config* config);
 
 
 
