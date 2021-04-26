@@ -29,13 +29,14 @@ set(SENSOR_SOURCES
     src/perf.h src/perf.c
     src/storage.h src/storage.c
     src/storage_socket.h src/storage_socket.c
+    src/storage_deamon.h src/storage_deamon.c
     src/storage_csv.h src/storage_csv.c
     src/sensor.c
 )
 
 set(SENSOR_INCLUDES "${CZMQ_STATIC_INCLUDE_DIRS}")
 set(SENSOR_DEFINITIONS "${CZMQ_STATIC_DEFINITIONS}")
-set(SENSOR_LIBRARIES "${CZMQ_STATIC_LIBRARIES}" pfm)
+set(SENSOR_LIBRARIES "${CZMQ_STATIC_LIBRARIES}" pfm pthread)
 
 if(WITH_MONGODB)
     pkg_check_modules(BSON REQUIRED libbson-1.0)

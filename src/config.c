@@ -237,6 +237,11 @@ config_validate(struct config *config)
 	return -1;
     }
 
+    if (storage-> type == STORAGE_DEAMON && (!storage-> P_flag)) {
+	zsys_error ("config: the deamon storage module requires the 'P' flag to be set");
+	return -1;
+    }
+
 #ifdef HAVE_MONGODB
     if (storage->type == STORAGE_MONGODB && (!storage->U_flag || !storage->D_flag || !storage->C_flag)) {
 	zsys_error("config: the MongoDB storage module requires the 'U', 'D' and 'C' flags to be set");

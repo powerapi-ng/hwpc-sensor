@@ -58,3 +58,5 @@ dockerbuild/
 
 # CMake
 compile_commands.json
+
+.build/*
