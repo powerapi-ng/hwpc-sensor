@@ -192,7 +192,7 @@ config_setup_from_cli(int argc, char **argv, struct config *config)
 		config->storage.C_flag = optarg;
 		break;
 	    case 'P':
-                config->storage.P_flag = strtol(optarg, NULL, 10);
+	      config->storage.P_flag = (int)strtol(optarg, NULL, 10);
 		if(config->storage.P_flag == 0){
 		    zsys_error("config:  '%s' is not a valid port number", optarg);
 		    goto end;

@@ -39,6 +39,7 @@
 #include "config.h"
 
 
+#define MAX_DURATION_CONNECTION_RETRY 30 * 60
 /*
  * socket_config stores the required information for the module.
  */

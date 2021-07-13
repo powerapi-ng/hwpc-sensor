@@ -32,6 +32,8 @@
 #include <netinet/in.h>
 #include <time.h>
 #include <bson.h>
+#include <unistd.h>
+#include <stdio.h>
 
 #include "report.h"
 #include "storage_socket.h"
@@ -74,6 +76,21 @@ addr_init(struct socket_config config, struct sockaddr_in * addr)
 
 
 static int
+socket_connection(struct socket_context *ctx)
+{
+  long int t0;
+  
+  t0 = time(NULL);
+  while(difftime(time(NULL), t0) < MAX_DURATION_CONNECTION_RETRY  && !zsys_interrupted){
+    if (connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) != -1)
+      return 0;
+    sleep(1);
+  }
+  
+  return -1;
+}
+
+static int
 socket_initialize(struct storage_module *module)
 {
     struct socket_context *ctx = module->context;
@@ -92,7 +109,7 @@ socket_initialize(struct storage_module *module)
         goto error;
     }
 
-    if(connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) == -1){
+    if(socket_connection(ctx) == -1){
         zsys_error("socket: unable to connect to %s", ctx->config.address);
         goto error;
     }
@@ -114,19 +131,19 @@ socket_ping(struct storage_module *module)
     return -1;
 }
 
-void timestamp_to_iso_date(unsigned long int timestamp, char * time_buffer, int max_size)
+void timestamp_to_iso_date(long int timestamp, char * time_buffer, int max_size)
 {
     long int date_without_ms;
     struct tm * tm_date;
     int len;
 
-    date_without_ms= timestamp / 1000;
+    date_without_ms = timestamp / 1000;
     tm_date = localtime((const long int*)&date_without_ms);
     len = strftime(time_buffer, max_size, "%Y-%m-%dT%H:%M:%S.", tm_date );
 
-    time_buffer[len] = ((timestamp % 1000 - (timestamp % 100)) / 100) + 48;
-    time_buffer[len + 1] = ((timestamp % 100 - (timestamp % 10)) / 10) + 48;
-    time_buffer[len + 2] = (timestamp % 10) + 48;
+    time_buffer[len] = (char)(((timestamp % 1000 - (timestamp % 100)) / 100) + 48);
+    time_buffer[len + 1] = (char)(((timestamp % 100 - (timestamp % 10)) / 10) + 48);
+    time_buffer[len + 2] = (char)((timestamp % 10) + 48);
     time_buffer[len + 3] = '\0';
 }
 
