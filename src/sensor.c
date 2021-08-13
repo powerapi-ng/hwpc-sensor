@@ -36,6 +36,7 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 #include <czmq.h>
+#include <bson.h>
 
 #include "version.h"
 #include "config.h"
@@ -142,6 +143,10 @@ main(int argc, char **argv)
     struct target *system_target = NULL;
     struct perf_config *system_monitor_config = NULL;
     zactor_t *system_perf_monitor = NULL;
+    char *config_file_path = NULL;
+    bson_json_reader_t *reader = NULL;
+    bson_error_t error;
+    bson_t doc = BSON_INITIALIZER;
 
     if (!zsys_init()) {
         fprintf(stderr, "czmq: failed to initialize zsys context\n");
@@ -179,14 +184,36 @@ main(int argc, char **argv)
 	zsys_error("config: failed to create config container");
 	goto cleanup;
     }
-    if (config_setup_from_cli(argc, argv, config)) {
-	zsys_error("config: failed to parse the provided command-line arguments");
+    if(parse_config_file_path(argc, argv, &config_file_path)){
 	goto cleanup;
     }
+    if(config_file_path != NULL){
+
+      if (!(reader = bson_json_reader_new_from_file (config_file_path, &error))){
+	zsys_error("config: Failed to open config file \"%s\": %s\n", config_file_path, error.message);
+	goto cleanup;
+      }
+      if(bson_json_reader_read (reader, &doc, &error) < 0){
+	zsys_error("config: Error in json parsing:\n%s\n", error.message);
+	goto cleanup;
+      }
+      if(config_setup_from_file(config, &doc)){
+	zsys_error("config: failed to parse the provided config file");
+	goto cleanup;
+      }
+    }
+    else{
+      if (config_setup_from_cli(argc, argv, config)) {
+	zsys_error("config: failed to parse the provided command-line arguments");
+	goto cleanup;
+      }
+    }
+
     if (config_validate(config)) {
 	zsys_error("config: failed to validate config");
 	goto cleanup;
     };
+
 
     /* detect pmu topology */
     sys_pmu_topology = pmu_topology_create();
@@ -218,7 +245,6 @@ main(int argc, char **argv)
         zsys_error("hwinfo: error while detecting hardware information");
         goto cleanup;
     }
-
     /* setup storage module */
     storage = setup_storage_module(config);
     if (!storage) {
@@ -274,6 +300,9 @@ main(int argc, char **argv)
     ret = 0;
 
 cleanup:
+    if(reader != NULL)
+      bson_json_reader_destroy(reader);
+    bson_destroy(&doc);
     zhashx_destroy(&cgroups_running);
     zhashx_destroy(&container_monitoring_actors);
     zactor_destroy(&system_perf_monitor);

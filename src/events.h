@@ -49,7 +49,7 @@ enum events_group_monitoring_type
  */
 struct event_config
 {
-    char *name;
+    const char *name;
     struct perf_event_attr attr;
 };
 
@@ -58,7 +58,7 @@ struct event_config
  */
 struct events_group
 {
-    char *name;
+    const char *name;
     enum events_group_monitoring_type type;
     zlistx_t *events; /* struct event_config *event */
 };
@@ -66,7 +66,7 @@ struct events_group
 /*
  * event_config_create allocate the required resources for the event config container.
  */
-struct event_config *event_config_create(char *event_name);
+struct event_config *event_config_create(const char *event_name);
 
 /*
  * event_config_dup duplicate the given event config container.
@@ -81,7 +81,7 @@ void event_config_destroy(struct event_config **config);
 /*
  * events_group_create allocate the required resources for the events group container.
  */
-struct events_group *events_group_create(char *name);
+struct events_group *events_group_create(const char *name);
 
 /*
  * events_group_dup duplicate the given events group container.
@@ -91,7 +91,7 @@ struct events_group *events_group_dup(struct events_group *group);
 /*
  * events_group_append_event get the event attributes from its name (if available) and store it into the events group container.
  */
-int events_group_append_event(struct events_group *group, char *event_name);
+int events_group_append_event(struct events_group *group, const char *event_name);
 
 /*
  * events_group_destroy free the allocated resources of the events group container.

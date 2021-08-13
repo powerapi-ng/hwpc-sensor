@@ -37,7 +37,7 @@
 #include "util.h"
 
 static int
-setup_perf_event_attr(char *event_name, struct perf_event_attr *attr)
+setup_perf_event_attr(const char *event_name, struct perf_event_attr *attr)
 {
     pfm_perf_encode_arg_t arg = {0};
 
@@ -55,7 +55,7 @@ setup_perf_event_attr(char *event_name, struct perf_event_attr *attr)
 }
 
 struct event_config *
-event_config_create(char *event_name)
+event_config_create(const char *event_name)
 {
     struct perf_event_attr attr = {0};
     struct event_config *config = NULL;
@@ -97,7 +97,7 @@ event_config_destroy(struct event_config **config)
 }
 
 struct events_group *
-events_group_create(char *name)
+events_group_create(const char *name)
 {
     struct events_group *group = malloc(sizeof(struct events_group));
 
@@ -131,7 +131,7 @@ events_group_dup(struct events_group *group)
 }
 
 int
-events_group_append_event(struct events_group *group, char *event_name)
+events_group_append_event(struct events_group *group, const char *event_name)
 {
     int ret = -1;
     struct event_config *event = NULL;
