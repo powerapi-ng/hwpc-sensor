@@ -6,7 +6,7 @@ WORKDIR /srv
 COPY . /tmp/build_deb
 
 ARG BUILD_TYPE=Debug
-ARG MONGODB_SUPPORT=OFF
+ARG MONGODB_SUPPORT=ON
 
 RUN apt update && \
     apt install -y cmake build-essential git pkg-config libbson-dev libczmq-dev libsystemd-dev uuid-dev clang-tidy cmake devscripts debhelper dpatch python3-dev libncurses-dev swig
