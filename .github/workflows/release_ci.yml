@@ -5,20 +5,22 @@ on:
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 jobs:
-  extract_version:
-    name: Extract sensor version
+  check_version:
+    name: Check sensor version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.step1.outputs.version }}
     steps:
-      - name: Check tag and package version
+      - uses: actions/checkout@v2
+      - name: Check tag and sensor version
         id: step1
         run: |
           export VERSION=$(echo $GITHUB_REF | sed -e 's/refs\/tags\/v//g')
+          test $VERSION == $(grep Version control | cut -d ' ' -f 2)
           echo "::set-output name=version::$VERSION"
   build:
     name: Build binary
-    needs: extract_version
+    needs: check_version
     runs-on: ubuntu-latest
     container:
       image: powerapi/hwpc-sensor-build:latest
@@ -45,7 +47,7 @@ jobs:
   build_docker_image:
     name: Build and push docker image
     runs-on: ubuntu-latest
-    needs: [extract_version, build]
+    needs: [check_version, build]
     steps:
       - uses: actions/checkout@v2
       - name: Log in to Docker Hub
@@ -59,15 +61,15 @@ jobs:
           context: .
           push: true
           file: Dockerfile
-          tags: powerapi/hwpc-sensor:latest, powerapi/hwpc-sensor:${{needs.extract_version.outputs.version}}
+          tags: powerapi/hwpc-sensor:latest, powerapi/hwpc-sensor:${{needs.check_version.outputs.version}}
   build_deb:
     name: Build debian package
-    needs: [extract_version, build]
+    needs: [check_version, build]
     runs-on: ubuntu-latest
     container:
       image: powerapi/hwpc-sensor-build:latest
     env:
-      VERSION: ${{needs.extract_version.outputs.version}}
+      VERSION: ${{needs.check_version.outputs.version}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
@@ -84,13 +86,13 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: deb_package
-          path: hwpc-sensor-${{needs.extract_version.outputs.version}}.deb
+          path: hwpc-sensor-${{needs.check_version.outputs.version}}.deb
   publish_release:
     name: Publish release on github
     runs-on: ubuntu-latest
-    needs: [extract_version, build_deb]
+    needs: [check_version, build_deb]
     env:
-      VERSION: ${{needs.extract_version.outputs.version}}
+      VERSION: ${{needs.check_version.outputs.version}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
