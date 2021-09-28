@@ -82,6 +82,7 @@ jobs:
           cp control hwpc-sensor-$VERSION/DEBIAN/
           mkdir -p hwpc-sensor-$VERSION/usr/bin/
           cp ~/bin/hwpc-sensor hwpc-sensor-$VERSION/usr/bin/hwpc-sensor
+          chmod +x hwpc-sensor-$VERSION/usr/bin/hwpc-sensor
           dpkg-deb --build hwpc-sensor-$VERSION
       - uses: actions/upload-artifact@v2
         with:
