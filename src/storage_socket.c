@@ -98,7 +98,7 @@ socket_initialize(struct storage_module *module)
     if (module->is_initialized)
         return -1;
 
-    if(addr_init(ctx->config, &(ctx->address)) == -1){
+    if(addr_init(ctx->config, &(ctx->address)) == 0){
         zsys_error("socket: failed to parse uri: %s", ctx->config.address);
         goto error;
     }
