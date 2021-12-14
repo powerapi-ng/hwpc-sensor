@@ -153,6 +153,12 @@ main(int argc, char **argv)
         return ret;
     }
 
+    /* Disable EPIPE signal: when writting to a closed socket we get an EPIPE signal, 
+       which stops the sensor entirely. Insteas, we ignore this signal and deal manually
+       with the issue when wrting to the socket.
+    */
+    signal(SIGPIPE, SIG_IGN);
+
     /* disable limit of maximum czmq sockets */
     zsys_set_max_sockets(0);
 
