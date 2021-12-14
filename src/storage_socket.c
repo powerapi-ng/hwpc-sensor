@@ -225,7 +225,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     bson_t doc_cpu;
     const char *event_name = NULL;
     uint64_t *event_value = NULL;
-    bson_error_t error;
+    // bson_error_t error;
     int ret = 0;
     char *buffer = NULL;
     size_t length = -1;
@@ -298,11 +298,31 @@ socket_store_report(struct storage_module *module, struct payload *payload)
         ret = -1;
     }
     
+    zsys_debug("writing to socket");
+    int r = write(ctx->socket, buffer, length);
+    zsys_debug("written %d", r);
+    if (r == -1) {
+
+        zsys_info("socket write failure, close ");
+        close(ctx-> socket);
+        ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
+        if(ctx->socket == -1) {
+            zsys_error("socket: failed create socket");
+        } else {
+
+            zsys_info("socket write failure, attempt reconnecting ");
+
+            // FIXME : we probably wait way too long here if connection does not work !
+            //  * Implement exponential back-off
+            //  * do not bock the actor while attempting to reconnect
+            socket_connection(ctx); // FIXME : check return code
+            zsys_info("socket reconnected ");
+        }
     
-    if (!write(ctx->socket, buffer, length)) {
-        zsys_error("socket: failed insert timestamp=%lu target=%s: %s", payload->timestamp, payload->target_name, error.message);
+        zsys_error("socket: error %d - failed insert timestamp=%lu target=%s ", errno, payload->timestamp, payload->target_name);
         ret = -1;
     }
+    zsys_debug("written");
 
     bson_destroy(&document);
     return ret;
