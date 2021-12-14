@@ -90,6 +90,62 @@ socket_connection(struct socket_context *ctx)
   return -1;
 }
 
+/* Attemp to resolve network name from config.address and connect. */
+static int
+socket_resolve_and_connect(struct socket_context *ctx)
+{
+    struct addrinfo *result, *rp;
+    struct addrinfo hints;
+    int s;
+    char portstr[8];
+    bool is_connected = false;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;    /*  IPv4 */
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = 0;
+    hints.ai_protocol = 0;
+    hints.ai_canonname = NULL;
+    hints.ai_addr = NULL;
+    hints.ai_next = NULL;
+
+    bson_snprintf (portstr, sizeof portstr, "%hu", ctx->config.port);
+
+    s = getaddrinfo(ctx->config.address, portstr, &hints, &result);
+    if (s!= 0) {
+        zsys_error("unable to get addr info from %s", ctx->config.address);
+        goto error;
+    }
+    
+    zsys_debug("Name %s resolved, attempt connecting", ctx->config.address);
+    ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
+    if(ctx->socket == -1) {
+        zsys_error("socket: failed create socket");
+        goto error;
+    }
+    // attemps to connect to the first possible result from getaddrinfo
+    for (rp = result; rp; rp = rp->ai_next) {
+        memcpy(&ctx->address, rp->ai_addr, rp->ai_addrlen);
+        if(socket_connection(ctx) == -1){
+            zsys_warning("socket: unable to connect to %s", ctx->config.address);
+        } else {
+            zsys_info("Connected !!");
+            is_connected = true;
+            break;
+        }
+    }
+    freeaddrinfo (result);
+    if (! is_connected) {
+         zsys_error("Could not connect to any resolved address for  %s", ctx->config.address);
+        goto error;
+    }
+
+    return 0;
+
+error:
+    return -1;
+}
+
 static int
 socket_initialize(struct storage_module *module)
 {
@@ -98,20 +154,25 @@ socket_initialize(struct storage_module *module)
     if (module->is_initialized)
         return -1;
 
-    if(addr_init(ctx->config, &(ctx->address)) == 0){
-        zsys_error("socket: failed to parse uri: %s", ctx->config.address);
-        goto error;
-    }
-    
-    ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
-    if(ctx->socket == -1) {
-        zsys_error("socket: failed create socket");
-        goto error;
-    }
+    if(addr_init(ctx->config, &(ctx->address)) == 1){
+        // ctx.address is a valid IP address, attempt connecting:
+        ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
+        if(ctx->socket == -1) {
+            zsys_error("socket: failed create socket");
+            goto error;
+        }
+        if(socket_connection(ctx) == -1){
+            zsys_error("socket: unable to connect to %s", ctx->config.address);
+            goto error;
+        }
 
-    if(socket_connection(ctx) == -1){
-        zsys_error("socket: unable to connect to %s", ctx->config.address);
-        goto error;
+    } else {
+
+        zsys_info("socket: failed to parse uri: %s, trying to resolve name", ctx->config.address);
+        if (socket_resolve_and_connect(ctx) == -1) {
+            zsys_error("Could not resolve and connect to %s", ctx->config.address);
+            goto error;
+        }
     }
 
     module->is_initialized = true;
