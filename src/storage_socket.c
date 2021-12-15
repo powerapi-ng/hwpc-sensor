@@ -308,10 +308,18 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     const char *event_name = NULL;
     uint64_t *event_value = NULL;
     // bson_error_t error;
-    int ret = 0;
     char *buffer = NULL;
     size_t length = -1;
     char time_buffer[100];
+
+    // avoid building the document if the socket connection is not available
+    if (ctx->cnx_fail != -1) {
+        if (socket_reconnection(ctx) != 0) {
+            zsys_error("socket: error no connection, drop report %lu target=%s ",  payload->timestamp, payload->target_name);
+            goto error;
+        }
+    }
+
     /*
      * construct document as following:
      * {
@@ -335,8 +343,6 @@ socket_store_report(struct storage_module *module, struct payload *payload)
      *   }
      * }
      */
-
-
     timestamp_to_iso_date( payload->timestamp, time_buffer, 100);
     BSON_APPEND_UTF8(&document, "timestamp", time_buffer);
 
@@ -377,37 +383,28 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     /* buffer[length + 2] = '\0'; */
     if(buffer == NULL){
       zsys_error("socket: failed convert report to json");
-        ret = -1;
+      goto error;
     }
-    
-    zsys_debug("writing to socket");
     int r = write(ctx->socket, buffer, length);
-    zsys_debug("written %d", r);
     if (r == -1) {
-
-        zsys_info("socket write failure, close ");
-        close(ctx-> socket);
-        ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
-        if(ctx->socket == -1) {
-            zsys_error("socket: failed create socket");
-        } else {
-
-            zsys_info("socket write failure, attempt reconnecting ");
-
-            // FIXME : we probably wait way too long here if connection does not work !
-            //  * Implement exponential back-off
-            //  * do not bock the actor while attempting to reconnect
-            socket_connection(ctx); // FIXME : check return code
-            zsys_info("socket reconnected ");
-        }
-    
         zsys_error("socket: error %d - failed insert timestamp=%lu target=%s ", errno, payload->timestamp, payload->target_name);
-        ret = -1;
-    }
-    zsys_debug("written");
 
+        // start reconnection with exponential backoff
+        if (socket_reconnection(ctx) == 0 ) {
+            if (write(ctx->socket, buffer, length) == -1) {
+                zsys_error("socket: error %d - failed insert timestamp=%lu target=%s ", errno, payload->timestamp, payload->target_name);
+                goto error;
+            }
+        } else {
+            goto error;
+        }
+    }
     bson_destroy(&document);
-    return ret;
+    return 0;
+
+error:
+    bson_destroy(&document);
+    return -1;    
 }
 
 static int
