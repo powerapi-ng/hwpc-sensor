@@ -18,8 +18,8 @@ RUN git clone -b msr-pmu-old https://github.com/gfieni/libpfm4.git /tmp/libpfm4
 RUN cd /tmp/libpfm4 && \
     fakeroot debian/rules binary
 
-RUN dpkg -i /tmp/libpfm4_10.1_amd64.deb && \
-    dpkg -i /tmp/libpfm4-dev_10.1_amd64.deb && \
+RUN dpkg -i /tmp/libpfm4_*_amd64.deb && \
+    dpkg -i /tmp/libpfm4-dev_*_amd64.deb && \
     rm /tmp/*.deb
 
 RUN apt update && \
