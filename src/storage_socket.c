@@ -39,6 +39,9 @@
 #include "storage_socket.h"
 #include "perf.h"
 
+
+static int socket_resolve_and_connect(struct socket_context *ctx);
+
 static struct socket_context *
 socket_context_create(const char *sensor_name, const char *address, int port)
 {
@@ -52,6 +55,9 @@ socket_context_create(const char *sensor_name, const char *address, int port)
     ctx->config.port = port;
     
     ctx->socket = -1;
+    ctx->cnx_fail = -1;
+    ctx->current_delay = -1;
+    ctx->last_attempt = -1;
 
     return ctx;
 }
@@ -71,7 +77,6 @@ addr_init(struct socket_config config, struct sockaddr_in * addr)
     addr->sin_family = AF_INET;
     addr->sin_port = htons(config.port);
     return inet_pton(AF_INET, config.address, &(addr->sin_addr));
-   
 }
 
 
@@ -110,6 +115,70 @@ error:
       close(ctx->socket);
     return -1;
 }
+
+/* Attempt reconnection with exponential backoff. 
+Calling this method will not always result in an attempt to connect the socket, 
+it will only be done once the current delay (for exponential backoff) is reach.
+This it can be safely called without hammering the network.
+Check the return value, if 0 then connection is successful and the socket can now be used.
+*/
+static int
+socket_reconnection(struct socket_context *ctx)
+{
+    time_t t0;
+
+    if (ctx->cnx_fail == -1 ) {
+        // first call in the backoff strategy, initialize 
+        close(ctx-> socket);
+        ctx->cnx_fail = time(NULL);
+        ctx->current_delay = 0;
+        ctx->last_attempt = -1;
+    }
+
+    t0 = time(NULL);
+    if (difftime(t0, ctx->cnx_fail)> MAX_DURATION_CONNECTION_RETRY) {
+        // MAX tentative reach, stop attempting reconnection
+        // FIXME : quit ? 
+        zsys_error("Stop re-connection attempts, MAX delay reached");
+        ctx->last_attempt = -1;
+        goto error;
+
+    } else if ( ctx->last_attempt + ctx->current_delay > t0){
+        // zsys_debug("Delay not reached %d %d %d", ctx->current_delay , ctx->last_attempt, t0);
+        // delay not reached, to not attempt reconnection
+        goto error;
+
+    } else {
+        zsys_info("Attempt connection  ");
+
+        if (socket_connection(ctx) != 0) {
+            // connection failed, update delay for exponential backoff
+            ctx->last_attempt = t0;
+            if (ctx->current_delay == 0) {
+                ctx->current_delay = 1;
+            } else {
+                // add some random jitter
+                // rand is weak but still clearly enough for our need here
+                ctx->current_delay = ctx->current_delay * 2 + (rand() % ctx->current_delay/2) ; // NOLINT(cert-msc30-c, cert-msc50-cpp)
+
+            }
+            zsys_warning("socket: reconnection failed, next attempt in %d seconds", ctx->current_delay);
+            close(ctx-> socket);
+            goto error;
+        }
+    }
+
+    zsys_info("socket: reconnected ");
+    // reset backoff counters
+    ctx->cnx_fail = -1;
+    ctx->current_delay = -1;
+    ctx->last_attempt = -1;
+    return 0;
+
+error:
+    return -1;
+}
+
 
 /* Attemp to resolve network name from config.address and connect. */
 static int

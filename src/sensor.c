@@ -159,6 +159,10 @@ main(int argc, char **argv)
     */
     signal(SIGPIPE, SIG_IGN);
 
+    // rand / srand are weak but given we only use them for jitter uin exponential backoff, 
+    // their good enough for us.
+    srand(time(NULL)); // NOLINT(cert-msc32-c,cert-msc51-cpp)
+
     /* disable limit of maximum czmq sockets */
     zsys_set_max_sockets(0);
 
