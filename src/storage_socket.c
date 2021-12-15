@@ -75,19 +75,40 @@ addr_init(struct socket_config config, struct sockaddr_in * addr)
 }
 
 
+/* Connect to the socket at ctx->config, 
+performing name resolution is the address is not a valid IPV4 address.
+This function make a single connection attempt, retry must be implemented by the caller.
+Returns 0 on success.
+*/
 static int
 socket_connection(struct socket_context *ctx)
 {
-  long int t0;
-  
-  t0 = time(NULL);
-  while(difftime(time(NULL), t0) < MAX_DURATION_CONNECTION_RETRY  && !zsys_interrupted){
-    if (connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) != -1)
-      return 0;
-    sleep(1);
-  }
-  
-  return -1;
+    if(addr_init(ctx->config, &(ctx->address)) == 1){
+        // ctx.address is a valid IP address, attempt connecting directly:
+        ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
+        if(ctx->socket == -1) {
+            zsys_error("socket: failed creating socket");
+            goto error;
+        }    
+
+        if (connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) == -1) {
+            zsys_error("socket: failed connecting to %s ", ctx->address);
+            goto error;
+        }
+        zsys_info("socket: Successfully connected");    
+
+    } else {
+        if (socket_resolve_and_connect(ctx) != 0) {
+            goto error;
+        }
+    }
+
+    return 0;
+
+error:
+    if(ctx->socket != -1)
+      close(ctx->socket);
+    return -1;
 }
 
 /* Attemp to resolve network name from config.address and connect. */
@@ -146,39 +167,31 @@ error:
     return -1;
 }
 
+
+/* Initialize storage module by connecting the output socket.
+This function blocks and retry connecting every second until the connection is successful 
+or MAX_DURATION_CONNECTION_RETRY is reached.
+Returns 0 on success.
+*/
 static int
 socket_initialize(struct storage_module *module)
 {
+    time_t t0;
     struct socket_context *ctx = module->context;
 
     if (module->is_initialized)
         return -1;
 
-    if(addr_init(ctx->config, &(ctx->address)) == 1){
-        // ctx.address is a valid IP address, attempt connecting:
-        ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
-        if(ctx->socket == -1) {
-            zsys_error("socket: failed create socket");
-            goto error;
-        }
-        if(socket_connection(ctx) == -1){
-            zsys_error("socket: unable to connect to %s", ctx->config.address);
-            goto error;
-        }
+    t0 = time(NULL);
+    while(difftime(time(NULL), t0) < MAX_DURATION_CONNECTION_RETRY  && !zsys_interrupted){
 
-    } else {
-
-        zsys_info("socket: failed to parse uri: %s, trying to resolve name", ctx->config.address);
-        if (socket_resolve_and_connect(ctx) == -1) {
-            zsys_error("Could not resolve and connect to %s", ctx->config.address);
-            goto error;
+        if (socket_connection(ctx) == 0) {
+            module->is_initialized = true;
+            return 0;
         }
+        sleep(1);
     }
 
-    module->is_initialized = true;
-    return 0;
-
-error:
     if(ctx->socket != -1)
       close(ctx->socket);
     return -1;
