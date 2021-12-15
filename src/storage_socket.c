@@ -201,6 +201,7 @@ socket_resolve_and_connect(struct socket_context *ctx)
 
     bson_snprintf (portstr, sizeof portstr, "%hu", ctx->config.port);
 
+    // Resolve network name:
     s = getaddrinfo(ctx->config.address, portstr, &hints, &result);
     if (s!= 0) {
         zsys_error("unable to get addr info from %s", ctx->config.address);
@@ -208,21 +209,26 @@ socket_resolve_and_connect(struct socket_context *ctx)
     }
     
     zsys_debug("Name %s resolved, attempt connecting", ctx->config.address);
-    ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
-    if(ctx->socket == -1) {
-        zsys_error("socket: failed create socket");
-        goto error;
-    }
-    // attemps to connect to the first possible result from getaddrinfo
+    // Attemps to connect to the first possible result from getaddrinfo:
     for (rp = result; rp; rp = rp->ai_next) {
         memcpy(&ctx->address, rp->ai_addr, rp->ai_addrlen);
-        if(socket_connection(ctx) == -1){
+
+        ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
+        if(ctx->socket == -1) {
+            zsys_error("socket: failed create socket");
+            goto error;
+        }
+
+        if (connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) == -1) {
             zsys_warning("socket: unable to connect to %s", ctx->config.address);
+            close(ctx->socket);
+
         } else {
-            zsys_info("Connected !!");
+            zsys_info("socket: Successfully connected");
             is_connected = true;
             break;
         }
+
     }
     freeaddrinfo (result);
     if (! is_connected) {
