@@ -220,7 +220,8 @@ socket_resolve_and_connect(struct socket_context *ctx)
         }
 
         if (connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) == -1) {
-            zsys_warning("socket: unable to connect to %s", ctx->config.address);
+            // inet_ntoa is IPV4 only but we only support ipv4 anyway
+            zsys_warning("socket: unable to connect to %s : errno %d - addr %s", ctx->config.address, errno , inet_ntoa(ctx->address.sin_addr));
             close(ctx->socket);
 
         } else {
