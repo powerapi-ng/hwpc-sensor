@@ -96,7 +96,7 @@ socket_connection(struct socket_context *ctx)
         }    
 
         if (connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) == -1) {
-            zsys_error("socket: failed connecting to %s ", ctx->address);
+            zsys_error("socket: failed connecting to %s ", ctx->config.address);
             goto error;
         }
         zsys_info("socket: Successfully connected");    
