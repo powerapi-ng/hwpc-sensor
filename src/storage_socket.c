@@ -183,7 +183,8 @@ error:
 static int
 socket_resolve_and_connect(struct socket_context *ctx)
 {
-    struct addrinfo *result, *rp;
+    struct addrinfo *result;
+    struct addrinfo *rp;
     struct addrinfo hints;
     int s;
     char portstr[8];
