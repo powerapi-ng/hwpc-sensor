@@ -12,7 +12,7 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -D_FORTIFY_SOURCE=2")
 find_package(PkgConfig)
 pkg_check_modules(BSON_STATIC REQUIRED libbson-1.0)
 pkg_check_modules(CZMQ_STATIC REQUIRED libczmq)
-#pkg_check_modules(PFM REQUIRED libpfm)
+# pkg_check_modules(PFM REQUIRED libpfm)
 
 set(SENSOR_SOURCES
     src/version.h

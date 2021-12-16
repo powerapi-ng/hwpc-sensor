@@ -28,24 +28,23 @@
  *  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <time.h>
 #include <bson.h>
-#include <unistd.h>
+#include <netinet/in.h>
 #include <stdio.h>
+#include <sys/socket.h>
+#include <time.h>
+#include <unistd.h>
 
+#include "perf.h"
 #include "report.h"
 #include "storage_socket.h"
-#include "perf.h"
 
 
 static int socket_resolve_and_connect(struct socket_context *ctx);
 
 static struct socket_context *
-socket_context_create(const char *sensor_name, const char *address, int port)
-{
-    struct socket_context *ctx = malloc(sizeof(struct socket_context));
+socket_context_create(const char *sensor_name, const char *address, int port) {
+  struct socket_context *ctx = malloc(sizeof(struct socket_context));
 
     if (!ctx)
         return NULL;
