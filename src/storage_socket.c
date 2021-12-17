@@ -299,6 +299,10 @@ static int socket_store_report(struct storage_module *module,
     ret = -1;
   }
 
+  if (buffer != NULL) {
+      bson_free(buffer);
+  }
+
   bson_destroy(&document);
   return ret;
 }
