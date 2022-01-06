@@ -58,6 +58,14 @@ struct socket_context
     struct socket_config config;
     struct sockaddr_in address;
     int socket;
+
+    /* time of connection failure, -1 if not failure has been detected */
+    time_t cnx_fail;
+    /* time of last connection attempt*/
+    time_t last_attempt;
+    /* current delay for attempting connection, will be updated at each attemps
+       for exponential back-off */
+    time_t current_delay;
 };
 
 /*
