@@ -412,6 +412,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
 error:
     bson_destroy(&document);
     return -1;    
+
 }
 
 static int
