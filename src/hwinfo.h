@@ -35,10 +35,6 @@
 #include <stddef.h>
 #include <czmq.h>
 
-/*
- * SYSFS_CPU_PATH stores the path leading to the available CPUs for the system.
- */
-#define SYSFS_CPU_PATH "/sys/bus/cpu/devices"
 
 /*
  * hwinfo_pkg stores information about the package.

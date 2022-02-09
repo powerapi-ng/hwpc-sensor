@@ -36,6 +36,19 @@
 #include "hwinfo.h"
 #include "util.h"
 
+/*
+ * SYSFS_CPU_PATH stores the path leading to the available CPUs for the system.
+ */
+#define SYSFS_CPU_PATH "/sys/bus/cpu/devices"
+
+/*
+ * CPU_ID_REGEX is the regex used to extract the CPU id from its name.
+ * CPU_ID_REGEX_EXPECTED_MATCHES is the number of expected matches from the regex. (num groups + 1)
+ */
+#define CPU_ID_REGEX "^cpu([0-9]+)$"
+#define CPU_ID_REGEX_EXPECTED_MATCHES 2
+
+
 static struct hwinfo_pkg *
 hwinfo_pkg_create(void)
 {
@@ -79,11 +92,11 @@ static int
 get_cpu_online_status(const char *cpu_dir)
 {
     int status = 1;
-    char path[256];
+    char path[PATH_MAX] = {0};
     FILE *f = NULL;
     char buffer[2]; /* boolean expected */
 
-    snprintf(path, sizeof(path), "%s/%s/online", SYSFS_CPU_PATH, cpu_dir);
+    snprintf(path, PATH_MAX, "%s/%s/online", SYSFS_CPU_PATH, cpu_dir);
 
     f = fopen(path, "r");
     if (f) {
@@ -105,11 +118,11 @@ static char *
 get_package_id(const char *cpu_dir)
 {
     FILE *f = NULL;
-    char path[256];
+    char path[PATH_MAX] = {0};
     char buffer[24]; /* log10(ULLONG_MAX) */
     char *id = NULL;
 
-    snprintf(path, sizeof(path), "%s/%s/topology/physical_package_id", SYSFS_CPU_PATH, cpu_dir);
+    snprintf(path, PATH_MAX, "%s/%s/topology/physical_package_id", SYSFS_CPU_PATH, cpu_dir);
 
     f = fopen(path, "r");
     if (f) {
@@ -126,13 +139,11 @@ static char *
 parse_cpu_id_from_name(const char *str)
 {
     regex_t re = {0};
-    const char *expr = "^cpu([0-9]+)$";
-    const size_t num_matches = 2; /* num groups + 1 */
-    regmatch_t matches[num_matches];
+    regmatch_t matches[CPU_ID_REGEX_EXPECTED_MATCHES];
     char *id = NULL;
 
-    if (!regcomp(&re, expr, REG_EXTENDED)) {
-        if (!regexec(&re, str, num_matches, matches, 0)) {
+    if (!regcomp(&re, CPU_ID_REGEX, REG_EXTENDED)) {
+        if (!regexec(&re, str, CPU_ID_REGEX_EXPECTED_MATCHES, matches, 0)) {
             id = strndup(str + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
         }
         regfree(&re);

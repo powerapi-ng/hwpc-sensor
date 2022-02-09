@@ -38,6 +38,21 @@
 #include "target.h"
 #include "target_docker.h"
 
+/*
+ * CONTAINER_ID_REGEX is the regex used to extract the Docker container id from the cgroup path.
+ * CONTAINER_ID_REGEX_EXPECTED_MATCHES is the number of expected matches from the regex. (num groups + 1)
+ */
+#define CONTAINER_ID_REGEX "perf_event/docker/([a-f0-9]{64})$"
+#define CONTAINER_ID_REGEX_EXPECTED_MATCHES 2
+
+/*
+ * CONTAINER_NAME_REGEX is the regex used to extract the Docker container name from its json configuration file.
+ * CONTAINER_NAME_REGEX_EXPECTED_MATCHES is the number of expected matches from the regex. (num groups + 1)
+ */
+#define CONTAINER_NAME_REGEX "\"Name\":\"/([a-zA-Z0-9][a-zA-Z0-9_.-]+)\""
+#define CONTAINER_NAME_REGEX_EXPECTED_MATCHES 2
+
+
 int
 target_docker_validate(const char *cgroup_path)
 {
@@ -47,7 +62,7 @@ target_docker_validate(const char *cgroup_path)
     if (!cgroup_path)
         return false;
 
-    if (!regcomp(&re, TARGET_DOCKER_EXTRACT_CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE | REG_NOSUB)) {
+    if (!regcomp(&re, CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE | REG_NOSUB)) {
         if (!regexec(&re, cgroup_path, 0, NULL, 0))
             is_docker_target = true;
 
@@ -61,20 +76,18 @@ static char *
 build_container_config_path(const char *cgroup_path)
 {
     regex_t re;
-    const size_t num_matches = 2;
-    regmatch_t matches[num_matches];
-    int res;
-    char config_path_buffer[TARGET_DOCKER_CONFIG_PATH_BUFFER_SIZE];
+    regmatch_t matches[CONTAINER_ID_REGEX_EXPECTED_MATCHES];
+    regoff_t length;
+    const char *id = NULL;
+    char buffer[PATH_MAX] = {0};
     char *config_path = NULL;
 
-    if (!regcomp(&re, TARGET_DOCKER_EXTRACT_CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE)) {
-        if (!regexec(&re, cgroup_path, num_matches, matches, 0)) {
-            res = snprintf(config_path_buffer, TARGET_DOCKER_CONFIG_PATH_BUFFER_SIZE,
-                    "/var/lib/docker/containers/%.*s/config.v2.json",
-                    matches[1].rm_eo - matches[1].rm_so, cgroup_path + matches[1].rm_so);
-
-            if (res > 0 && res < TARGET_DOCKER_CONFIG_PATH_BUFFER_SIZE)
-                config_path = strdup(config_path_buffer);
+    if (!regcomp(&re, CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE)) {
+        if (!regexec(&re, cgroup_path, CONTAINER_ID_REGEX_EXPECTED_MATCHES, matches, 0)) {
+            id = cgroup_path + matches[1].rm_so;
+            length = matches[1].rm_eo - matches[1].rm_so;
+            snprintf(buffer, PATH_MAX, "/var/lib/docker/containers/%.*s/config.v2.json", length, id);
+            config_path = strdup(buffer);
         }
         regfree(&re);
     }
@@ -90,8 +103,7 @@ target_docker_resolve_name(struct target *target)
     char *json = NULL;
     size_t json_len;
     regex_t re;
-    const size_t num_matches = 2;
-    regmatch_t matches[num_matches];
+    regmatch_t matches[CONTAINER_NAME_REGEX_EXPECTED_MATCHES];
     char *target_name = NULL;
 
     config_path = build_container_config_path(target->cgroup_path);
@@ -101,8 +113,8 @@ target_docker_resolve_name(struct target *target)
     json_file = fopen(config_path, "r");
     if (json_file) {
         if (getline(&json, &json_len, json_file) != -1) {
-            if (!regcomp(&re, TARGET_DOCKER_CONFIG_EXTRACT_NAME_REGEX, REG_EXTENDED | REG_NEWLINE)) {
-                if (!regexec(&re, json, num_matches, matches, 0))
+            if (!regcomp(&re, CONTAINER_NAME_REGEX, REG_EXTENDED | REG_NEWLINE)) {
+                if (!regexec(&re, json, CONTAINER_NAME_REGEX_EXPECTED_MATCHES, matches, 0))
                     target_name = strndup(json + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
 
                 regfree(&re);

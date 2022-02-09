@@ -35,27 +35,6 @@
 #include "target.h"
 
 /*
- * TARGET_KUBERNETES_EXTRACT_CONTAINER_ID_REGEX stores the regex used to extract the Docker container id from a cgroup path.
- */
-#define TARGET_KUBERNETES_EXTRACT_CONTAINER_ID_REGEX \
-    "perf_event/kubepods/" \
-    "(besteffort/|burstable/|)" \
-    "(pod[a-zA-Z0-9][a-zA-Z0-9.-]+)/" /* Pod ID */ \
-    "([a-f0-9]{64})" /* Container ID */ \
-    "(/[a-zA-Z0-9][a-zA-Z0-9.-]+|)" /* Resource group */
-
-/*
- * TARGET_KUBERNETES_EXTRACT_CONTAINER_NAME_REGEX stores the regex used to extract the name of the Docker container from
- * the json configuration file.
- */
-#define TARGET_KUBERNETES_EXTRACT_CONTAINER_NAME_REGEX "\"Name\":\"/([a-zA-Z0-9][a-zA-Z0-9_.-]+)\""
-
-/*
- * TARGET_KUBERNETES_CONFIG_PATH_BUFFER_SIZE stores the buffer size for the path to the Docker config file.
- */
-#define TARGET_KUBERNETES_CONFIG_PATH_BUFFER_SIZE 128
-
-/*
  * target_kubernetes_validate check if the cgroup path lead to a valid Kubernetes target.
  */
 int target_kubernetes_validate(const char *cgroup_path);
