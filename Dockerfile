@@ -30,8 +30,10 @@ RUN cd /usr/src/hwpc-sensor && \
 FROM debian:buster as sensor-runner
 ARG BUILD_TYPE=Debug
 ARG MONGODB_SUPPORT=ON
-RUN apt update && \
-    apt install -y libczmq4 && \
+ARG FILE_CAPABILITY=CAP_SYS_ADMIN
+RUN useradd -d /opt/powerapi -m powerapi && \
+    apt update && \
+    apt install -y libczmq4 libcap2 && \
     echo "${MONGODB_SUPPORT}" |grep -iq "on" && apt install -y libmongoc-1.0-0 || true && \
     echo "${BUILD_TYPE}" |grep -iq "debug" && apt install -y libasan5 libubsan1 || true && \
     rm -rf /var/lib/apt/lists/*
@@ -39,5 +41,9 @@ COPY --from=libpfm-builder /root/libpfm4*.deb /tmp/
 RUN dpkg -i /tmp/libpfm4_*_amd64.deb && \
     rm /tmp/*.deb
 COPY --from=sensor-builder /usr/src/hwpc-sensor/build/hwpc-sensor /usr/bin/hwpc-sensor
-ENTRYPOINT ["/usr/bin/hwpc-sensor"]
+RUN setcap "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor && \
+    setcap -v "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor
+COPY docker/entrypoint.sh /entrypoint.sh
+USER powerapi
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["--help"]
