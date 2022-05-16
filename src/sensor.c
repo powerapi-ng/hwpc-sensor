@@ -176,9 +176,9 @@ main(int argc, char **argv)
     }
     zsys_info("uname: %s %s %s %s", kernel_info.sysname, kernel_info.release, kernel_info.version, kernel_info.machine);
 
-    /* check if run as root */
-    if (geteuid()) {
-        zsys_error("perms: this program requires to be run as root to work");
+    /* check if perf_event is working */
+    if (perf_try_global_counting_event_open()) {
+        zsys_error("perf: error while testing the perf_event support");
         goto cleanup;
     }
 
