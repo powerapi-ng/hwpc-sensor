@@ -119,5 +119,11 @@ void perf_config_destroy(struct perf_config *config);
  */
 void perf_monitoring_actor(zsock_t *pipe, void *args);
 
+/*
+ * perf_try_event_open try to open a global counting event using the perf_event_open syscall.
+ * This is used to check if the perf_event_open syscall is working and the current process is allowed to use it.
+ */
+int perf_try_global_counting_event_open();
+
 #endif /* PERF_H */
 

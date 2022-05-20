@@ -558,3 +558,35 @@ cleanup:
     perf_context_destroy(ctx);
 }
 
+int
+perf_try_global_counting_event_open()
+{
+    struct perf_event_attr pe = {0};
+    int fd;
+
+    /* check support of perf_event by the kernel */
+    if (access("/proc/sys/kernel/perf_event_paranoid", F_OK) == -1) {
+        zsys_error("perf: kernel doesn't have perf_event support");
+        return -1;
+    }
+
+    /* configure basic event that should be available on most CPUs */
+    pe.type = PERF_TYPE_HARDWARE;
+    pe.size = sizeof(pe);
+    pe.config = PERF_COUNT_HW_INSTRUCTIONS;
+    pe.disabled = 1;
+
+    errno = 0;
+    fd = perf_event_open(&pe, -1, 0, -1, 0);
+    if (fd == -1) {
+        zsys_error("perf: perf_event_open failed with error: %s", strerror(errno));
+        if (errno == EACCES || errno == EPERM) {
+            zsys_error("perf: perf_event requires the CAP_PERFMON or CAP_SYS_ADMIN capability to work");
+        }
+        return -1;
+    }
+
+    close(fd);
+    return 0;
+}
+
