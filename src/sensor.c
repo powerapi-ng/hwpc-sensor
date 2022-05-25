@@ -54,15 +54,6 @@
 #include "storage_mongodb.h"
 #endif
 
-void
-usage()
-{
-    fprintf(stderr, "usage: smartwatts-sensor [-v] [-f FREQUENCY] [-p CGROUP_PATH] -n SENSOR_NAME\n"
-            "\t-c | -s EVENT_GROUP_NAME [-o] -e EVENT_NAME\n"
-            "\t-r STORAGE_MODULE -U STORAGE_URL [-D STORAGE_D] [-C STORAGE_C]\n"
-    );
-}
-
 static struct storage_module *
 setup_storage_module(struct config *config)
 {
@@ -188,6 +179,37 @@ main(int argc, char **argv)
         goto cleanup;
     }
 
+    /* detect pmu topology */
+    sys_pmu_topology = pmu_topology_create();
+    if (!sys_pmu_topology) {
+        zsys_error("pmu: cannot allocate pmu topology memory");
+        goto cleanup;
+    }
+    if (pmu_topology_detect(sys_pmu_topology)) {
+        zsys_error("pmu: cannot detect system PMU topology");
+        goto cleanup;
+    }
+    for (pmu = zlistx_first(sys_pmu_topology->pmus); pmu; pmu = zlistx_next(sys_pmu_topology->pmus)) {
+        zsys_info("pmu: found %s '%s' having %d events, %d counters (%d general, %d fixed)",
+                pmu->info.name,
+                pmu->info.desc,
+                pmu->info.nevents,
+                pmu->info.num_cntrs + pmu->info.num_fixed_cntrs,
+                pmu->info.num_cntrs,
+                pmu->info.num_fixed_cntrs);
+    }
+
+    /* detect machine hardware */
+    hwinfo = hwinfo_create();
+    if (!hwinfo) {
+        zsys_error("hwinfo: error while creating hardware information container");
+        goto cleanup;
+    }
+    if (hwinfo_detect(hwinfo)) {
+        zsys_error("hwinfo: error while detecting hardware information");
+        goto cleanup;
+    }
+
     /* get application config */
     config = config_create();
     if (!config) {
@@ -224,37 +246,6 @@ main(int argc, char **argv)
 	goto cleanup;
     };
 
-
-    /* detect pmu topology */
-    sys_pmu_topology = pmu_topology_create();
-    if (!sys_pmu_topology) {
-        zsys_error("pmu: cannot allocate pmu topology memory");
-        goto cleanup;
-    }
-    if (pmu_topology_detect(sys_pmu_topology)) {
-        zsys_error("pmu: cannot detect system PMU topology");
-        goto cleanup;
-    }
-    for (pmu = zlistx_first(sys_pmu_topology->pmus); pmu; pmu = zlistx_next(sys_pmu_topology->pmus)) {
-        zsys_info("pmu: found %s '%s' having %d events, %d counters (%d general, %d fixed)",
-                pmu->info.name,
-                pmu->info.desc,
-                pmu->info.nevents,
-                pmu->info.num_cntrs + pmu->info.num_fixed_cntrs,
-                pmu->info.num_cntrs,
-                pmu->info.num_fixed_cntrs);
-    }
-
-    /* detect machine hardware */
-    hwinfo = hwinfo_create();
-    if (!hwinfo) {
-        zsys_error("hwinfo: error while creating hardware information container");
-        goto cleanup;
-    }
-    if (hwinfo_detect(hwinfo)) {
-        zsys_error("hwinfo: error while detecting hardware information");
-        goto cleanup;
-    }
     /* setup storage module */
     storage = setup_storage_module(config);
     if (!storage) {
