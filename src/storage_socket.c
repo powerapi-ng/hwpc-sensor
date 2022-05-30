@@ -281,11 +281,11 @@ socket_ping(struct storage_module *module)
     return -1;
 }
 
-void timestamp_to_iso_date(long int timestamp, char * time_buffer, int max_size)
+void timestamp_to_iso_date(uint64_t timestamp, char *time_buffer, size_t max_size)
 {
-    long int date_without_ms;
-    struct tm * tm_date;
-    int len;
+    uint64_t date_without_ms;
+    struct tm *tm_date;
+    size_t len;
 
     date_without_ms = timestamp / 1000;
     tm_date = localtime((const long int*)&date_without_ms);
@@ -350,7 +350,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
      *   }
      * }
      */
-    timestamp_to_iso_date( payload->timestamp, time_buffer, 100);
+    timestamp_to_iso_date(payload->timestamp, time_buffer, 100);
     BSON_APPEND_UTF8(&document, "timestamp", time_buffer);
 
     BSON_APPEND_UTF8(&document, "sensor", ctx->config.sensor_name);
@@ -392,8 +392,8 @@ socket_store_report(struct storage_module *module, struct payload *payload)
       zsys_error("socket: failed convert report to json");
       goto error;
     }
-    int r = write(ctx->socket, buffer, length);
-    if (r == -1) {
+
+    if (write(ctx->socket, buffer, length) == -1) {
         zsys_error("socket: error %d - failed insert timestamp=%lu target=%s ", errno, payload->timestamp, payload->target_name);
 
         // start reconnection with exponential backoff
