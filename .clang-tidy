@@ -1,3 +1,3 @@
 ---
-Checks: '-*,bugprone-*,cert-*,clang-analyzer-*,misc-*,performance-*,portability-*,readability-*,-readability-braces-around-statements,-readability-magic-numbers'
-WarningsAsErrors: '-*,bugprone-*,cert-*,clang-analyzer-*,misc-*,performance-*,portability-*,readability-*,-readability-braces-around-statements,-readability-magic-numbers'
+Checks: '-*,bugprone-*,cert-*,clang-analyzer-*,misc-*,performance-*,portability-*,-bugprone-easily-swappable-parameters,-bugprone-unused-return-value,-cert-err33-c'
+WarningsAsErrors: '*'
