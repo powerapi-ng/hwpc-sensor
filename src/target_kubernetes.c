@@ -70,7 +70,7 @@ build_container_config_path(const char *cgroup_path)
                     "/var/lib/docker/containers/%.*s/config.v2.json",
                     matches[3].rm_eo - matches[3].rm_so, cgroup_path + matches[3].rm_so);
 
-            if (res > 0 || res < TARGET_KUBERNETES_CONFIG_PATH_BUFFER_SIZE)
+            if (res > 0 && res < TARGET_KUBERNETES_CONFIG_PATH_BUFFER_SIZE)
                 config_path = strdup(path_buffer);
         }
         regfree(&re);
