@@ -38,8 +38,18 @@
 #include "storage.h"
 #include "config.h"
 
+/*
+ * TIMESTAMP_STR_BUFFER_SIZE stores the maximum lenght of the buffer used to convert
+ * the timestamp stored as uint64_t to a null terminated string.
+ * It should have enough space to store all digits of UINT64_MAX and the null character.
+ */
+#define TIMESTAMP_STR_BUFFER_SIZE 32
 
+/*
+ * MAX_DURATION_CONNECTION_RETRY stores the maximal value of a connection retry. (in seconds)
+ */
 #define MAX_DURATION_CONNECTION_RETRY 30 * 60
+
 /*
  * socket_config stores the required information for the module.
  */

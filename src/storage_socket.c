@@ -32,7 +32,6 @@
 #include <netinet/in.h>
 #include <stdio.h>
 #include <sys/socket.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "perf.h"
@@ -281,27 +280,12 @@ socket_ping(struct storage_module *module)
     return -1;
 }
 
-void timestamp_to_iso_date(uint64_t timestamp, char *time_buffer, size_t max_size)
-{
-    uint64_t date_without_ms;
-    struct tm *tm_date;
-    size_t len;
-
-    date_without_ms = timestamp / 1000;
-    tm_date = localtime((const long int*)&date_without_ms);
-    len = strftime(time_buffer, max_size, "%Y-%m-%dT%H:%M:%S.", tm_date );
-
-    time_buffer[len] = (char)(((timestamp % 1000 - (timestamp % 100)) / 100) + 48);
-    time_buffer[len + 1] = (char)(((timestamp % 100 - (timestamp % 10)) / 10) + 48);
-    time_buffer[len + 2] = (char)((timestamp % 10) + 48);
-    time_buffer[len + 3] = '\0';
-}
-
 static int
 socket_store_report(struct storage_module *module, struct payload *payload)
 {
     struct socket_context *ctx = module->context;
     bson_t document = BSON_INITIALIZER;
+    char timestamp_str[TIMESTAMP_STR_BUFFER_SIZE] = {0};
     bson_t doc_groups;
     struct payload_group_data *group_data = NULL;
     const char *group_name = NULL;
@@ -314,10 +298,8 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     bson_t doc_cpu;
     const char *event_name = NULL;
     uint64_t *event_value = NULL;
-    // bson_error_t error;
     char *buffer = NULL;
     size_t length = -1;
-    char time_buffer[100];
 
     // avoid building the document if the socket connection is not available
     if (ctx->cnx_fail != -1) {
@@ -330,7 +312,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     /*
      * construct document as following:
      * {
-     *    "timestamp": 2020-09-08T15:46:44.856Z,
+     *    "timestamp": "1529868713854",
      *    "sensor": "test.cluster.lan",
      *    "target": "example",
      *    "groups": {
@@ -350,8 +332,8 @@ socket_store_report(struct storage_module *module, struct payload *payload)
      *   }
      * }
      */
-    timestamp_to_iso_date(payload->timestamp, time_buffer, 100);
-    BSON_APPEND_UTF8(&document, "timestamp", time_buffer);
+    snprintf(timestamp_str, TIMESTAMP_STR_BUFFER_SIZE, "%" PRIu64, payload->timestamp);
+    BSON_APPEND_UTF8(&document, "timestamp", timestamp_str);
 
     BSON_APPEND_UTF8(&document, "sensor", ctx->config.sensor_name);
     BSON_APPEND_UTF8(&document, "target", payload->target_name);
@@ -385,12 +367,9 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     bson_append_document_end(&document, &doc_groups);
 
     buffer = bson_as_json (&document, &length);
-    /* buffer[length] = '\r'; */
-    /* buffer[length + 1] = '\n'; */
-    /* buffer[length + 2] = '\0'; */
-    if(buffer == NULL){
-      zsys_error("socket: failed convert report to json");
-      goto error;
+    if (buffer == NULL) {
+        zsys_error("socket: failed convert report to json");
+        goto error;
     }
 
     if (write(ctx->socket, buffer, length) == -1) {
