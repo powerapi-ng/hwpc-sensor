@@ -32,11 +32,15 @@
 #ifndef STORAGE_SOCKET_H
 #define STORAGE_SOCKET_H
 
-#include <sys/socket.h>
-#include <netinet/in.h> 
-
 #include "storage.h"
 #include "config.h"
+
+/*
+ * PORT_STR_BUFFER_SIZE stores the maximum length of the buffer used to convert the
+ * port stored as uint64_t to a null terminated string.
+ * Typically, the port is between the 0-65535 range.
+ */
+#define PORT_STR_BUFFER_SIZE 8
 
 /*
  * TIMESTAMP_STR_BUFFER_SIZE stores the maximum lenght of the buffer used to convert
@@ -48,7 +52,7 @@
 /*
  * MAX_DURATION_CONNECTION_RETRY stores the maximal value of a connection retry. (in seconds)
  */
-#define MAX_DURATION_CONNECTION_RETRY 30 * 60
+#define MAX_DURATION_CONNECTION_RETRY 1800
 
 /*
  * socket_config stores the required information for the module.
@@ -66,16 +70,9 @@ struct socket_config
 struct socket_context
 {
     struct socket_config config;
-    struct sockaddr_in address;
-    int socket;
-
-    /* time of connection failure, -1 if not failure has been detected */
-    time_t cnx_fail;
-    /* time of last connection attempt*/
-    time_t last_attempt;
-    /* current delay for attempting connection, will be updated at each attemps
-       for exponential back-off */
-    time_t current_delay;
+    int socket_fd;
+    time_t last_retry_time;
+    time_t retry_backoff_time;
 };
 
 /*
