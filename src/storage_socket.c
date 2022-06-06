@@ -28,22 +28,23 @@
  *  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <bson.h>
-#include <netinet/in.h>
+
 #include <stdio.h>
-#include <sys/socket.h>
 #include <unistd.h>
+#include <sys/random.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <bson.h>
 
 #include "perf.h"
 #include "report.h"
 #include "storage_socket.h"
 
-
-static int socket_resolve_and_connect(struct socket_context *ctx);
-
 static struct socket_context *
-socket_context_create(const char *sensor_name, const char *address, int port) {
-  struct socket_context *ctx = malloc(sizeof(struct socket_context));
+socket_context_create(const char *sensor_name, const char *address, const int port)
+{
+    struct socket_context *ctx = malloc(sizeof(struct socket_context));
 
     if (!ctx)
         return NULL;
@@ -52,10 +53,9 @@ socket_context_create(const char *sensor_name, const char *address, int port) {
     ctx->config.address = address;
     ctx->config.port = port;
     
-    ctx->socket = -1;
-    ctx->cnx_fail = -1;
-    ctx->current_delay = -1;
-    ctx->last_attempt = -1;
+    ctx->socket_fd = -1;
+    ctx->last_retry_time = 0;
+    ctx->retry_backoff_time = 1;
 
     return ctx;
 }
@@ -70,213 +70,110 @@ socket_context_destroy(struct socket_context *ctx)
 }
 
 static int
-addr_init(struct socket_config config, struct sockaddr_in * addr)
-{
-    addr->sin_family = AF_INET;
-    addr->sin_port = htons(config.port);
-    return inet_pton(AF_INET, config.address, &(addr->sin_addr));
-}
-
-
-/* Connect to the socket at ctx->config, 
-performing name resolution is the address is not a valid IPV4 address.
-This function make a single connection attempt, retry must be implemented by the caller.
-Returns 0 on success.
-*/
-static int
-socket_connection(struct socket_context *ctx)
-{
-    if(addr_init(ctx->config, &(ctx->address)) == 1){
-        // ctx.address is a valid IP address, attempt connecting directly:
-        ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
-        if(ctx->socket == -1) {
-            zsys_error("socket: failed creating socket");
-            goto error;
-        }    
-
-        if (connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) == -1) {
-            zsys_error("socket: failed connecting to %s ", ctx->config.address);
-            goto error;
-        }
-        zsys_info("socket: Successfully connected");    
-
-    } else {
-        if (socket_resolve_and_connect(ctx) != 0) {
-            goto error;
-        }
-    }
-
-    return 0;
-
-error:
-    if(ctx->socket != -1)
-      close(ctx->socket);
-    return -1;
-}
-
-/* Attempt reconnection with exponential backoff. 
-Calling this method will not always result in an attempt to connect the socket, 
-it will only be done once the current delay (for exponential backoff) is reach.
-This it can be safely called without hammering the network.
-Check the return value, if 0 then connection is successful and the socket can now be used.
-*/
-static int
-socket_reconnection(struct socket_context *ctx)
-{
-    time_t t0;
-
-    if (ctx->cnx_fail == -1 ) {
-        // first call in the backoff strategy, initialize 
-        close(ctx-> socket);
-        ctx->cnx_fail = time(NULL);
-        ctx->current_delay = 0;
-        ctx->last_attempt = -1;
-    }
-
-    t0 = time(NULL);
-    if (difftime(t0, ctx->cnx_fail)> MAX_DURATION_CONNECTION_RETRY) {
-        // MAX tentative reach, stop attempting reconnection
-        // FIXME : quit ? 
-        zsys_error("Stop re-connection attempts, MAX delay reached");
-        ctx->last_attempt = -1;
-        goto error;
-
-    } else if ( ctx->last_attempt + ctx->current_delay > t0){
-        // zsys_debug("Delay not reached %d %d %d", ctx->current_delay , ctx->last_attempt, t0);
-        // delay not reached, to not attempt reconnection
-        goto error;
-
-    } else {
-        zsys_info("Attempt connection  ");
-
-        if (socket_connection(ctx) != 0) {
-            // connection failed, update delay for exponential backoff
-            ctx->last_attempt = t0;
-            if (ctx->current_delay == 0) {
-                ctx->current_delay = 1;
-            } else {
-                // add some random jitter
-                // rand is weak but still clearly enough for our need here
-                ctx->current_delay = ctx->current_delay * 2 + (rand() % ctx->current_delay/2) ; // NOLINT(cert-msc30-c, cert-msc50-cpp)
-
-            }
-            zsys_warning("socket: reconnection failed, next attempt in %d seconds", ctx->current_delay);
-            close(ctx-> socket);
-            goto error;
-        }
-    }
-
-    zsys_info("socket: reconnected ");
-    // reset backoff counters
-    ctx->cnx_fail = -1;
-    ctx->current_delay = -1;
-    ctx->last_attempt = -1;
-    return 0;
-
-error:
-    return -1;
-}
-
-
-/* Attemp to resolve network name from config.address and connect. */
-static int
 socket_resolve_and_connect(struct socket_context *ctx)
 {
-    struct addrinfo *result;
-    struct addrinfo *rp;
-    struct addrinfo hints;
-    int s;
-    char portstr[8];
-    bool is_connected = false;
+    struct addrinfo hints = {0};
+    struct addrinfo *result = NULL, *rp = NULL;
+    char port_str[PORT_STR_BUFFER_SIZE] = {0};
+    int sfd = -1;
+    int ret = -1;
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;    /*  IPv4 */
+    /* setup hints for address resolution */
+    hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = 0;
-    hints.ai_protocol = 0;
-    hints.ai_canonname = NULL;
-    hints.ai_addr = NULL;
-    hints.ai_next = NULL;
 
-    bson_snprintf (portstr, sizeof portstr, "%hu", ctx->config.port);
+    /* convert port number to string */
+    snprintf(port_str, PORT_STR_BUFFER_SIZE, "%d", ctx->config.port);
 
-    // Resolve network name:
-    s = getaddrinfo(ctx->config.address, portstr, &hints, &result);
-    if (s!= 0) {
-        zsys_error("unable to get addr info from %s", ctx->config.address);
-        goto error;
+    if (getaddrinfo(ctx->config.address, port_str, &hints, &result)) {
+        zsys_error("socket: unable to resolve address: %s", ctx->config.address);
+        goto error_no_getaddrinfo;
     }
-    
-    zsys_debug("Name %s resolved, attempt connecting", ctx->config.address);
-    // Attemps to connect to the first possible result from getaddrinfo:
+
+    /* attemps to connect to any of the resolved address(es) */
     for (rp = result; rp; rp = rp->ai_next) {
-        memcpy(&ctx->address, rp->ai_addr, rp->ai_addrlen);
+        sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sfd == -1)
+            continue;
 
-        ctx->socket = socket(PF_INET, SOCK_STREAM, 0);
-        if(ctx->socket == -1) {
-            zsys_error("socket: failed create socket");
-            goto error;
-        }
-
-        if (connect(ctx->socket, (struct sockaddr *)&(ctx->address), sizeof(ctx->address)) == -1) {
-            // inet_ntoa is IPV4 only but we only support ipv4 anyway
-            zsys_warning("socket: unable to connect to %s : errno %d - addr %s", ctx->config.address, errno , inet_ntoa(ctx->address.sin_addr));
-            close(ctx->socket);
-
-        } else {
-            zsys_info("socket: Successfully connected");
-            is_connected = true;
+        ret = connect(sfd, rp->ai_addr, rp->ai_addrlen);
+        if (!ret) {
+            zsys_info("socket: successfully connected to %s:%d", ctx->config.address, ctx->config.port);
             break;
         }
 
-    }
-    freeaddrinfo (result);
-    if (! is_connected) {
-         zsys_error("Could not connect to any resolved address for  %s", ctx->config.address);
-        goto error;
+        close(sfd);
     }
 
-    return 0;
+    /* no connection have been established */
+    if (ret == -1) {
+        zsys_error("socket: failed to connect to %s:%d", ctx->config.address, ctx->config.port);
+        goto error_not_connected;
+    }
 
-error:
-    return -1;
+    ctx->socket_fd = sfd;
+
+error_not_connected:
+    freeaddrinfo(result);
+error_no_getaddrinfo:
+    return ret;
 }
 
-
-/* Initialize storage module by connecting the output socket.
-This function blocks and retry connecting every second until the connection is successful 
-or MAX_DURATION_CONNECTION_RETRY is reached.
-Returns 0 on success.
-*/
 static int
 socket_initialize(struct storage_module *module)
 {
-    time_t t0;
     struct socket_context *ctx = module->context;
 
     if (module->is_initialized)
         return -1;
 
-    t0 = time(NULL);
-    while(difftime(time(NULL), t0) < MAX_DURATION_CONNECTION_RETRY  && !zsys_interrupted){
+    if (socket_resolve_and_connect(ctx))
+        return -1;
 
-        if (socket_connection(ctx) == 0) {
-            module->is_initialized = true;
-            return 0;
-        }
-        sleep(1);
-    }
-
-    if(ctx->socket != -1)
-      close(ctx->socket);
-    return -1;
+    module->is_initialized = 1;
+    return 0;
 }
 
 static int
-socket_ping(struct storage_module *module)
+socket_ping(struct storage_module *module __attribute__ ((unused)))
 {
-    if(module->context != NULL)
-      return 0;
+    /* ping is not supported by this module */
+    return 0;
+}
+
+static int
+socket_try_reconnect(struct socket_context *ctx)
+{
+    time_t current_time = time(NULL);
+    ssize_t nbrand;
+    uint8_t rand_jitter;
+
+    /* close the current socket */
+    if (ctx->socket_fd != -1) {
+        close(ctx->socket_fd);
+        ctx->socket_fd = -1;
+    }
+
+    /* retry socket connection with an exponential backoff */
+    if (difftime(current_time, ctx->last_retry_time) >= (double) ctx->retry_backoff_time) {
+        if (socket_resolve_and_connect(ctx)) {
+            ctx->last_retry_time = current_time;
+            if (ctx->retry_backoff_time < MAX_DURATION_CONNECTION_RETRY) {
+                nbrand = getrandom(&rand_jitter, sizeof(uint8_t), 0);
+                ctx->retry_backoff_time = ctx->retry_backoff_time * 2 + (nbrand != -1 ? rand_jitter % 10 : 0);
+            }
+
+            zsys_error("socket: failed to reconnect, next try will be in %d seconds", ctx->retry_backoff_time);
+            return -1;
+        } else {
+            ctx->last_retry_time = 0;
+            ctx->retry_backoff_time = 1;
+
+            zsys_info("socket: connection recovered, resuming operation");
+            return 0;
+        }
+    }
+
     return -1;
 }
 
@@ -298,19 +195,19 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     bson_t doc_cpu;
     const char *event_name = NULL;
     uint64_t *event_value = NULL;
-    char *buffer = NULL;
-    size_t length = -1;
+    char *json_report = NULL;
+    size_t json_report_length = 0;
+    ssize_t nbsend;
+    int retry_once = 1;
+    int ret = -1;
 
-    // avoid building the document if the socket connection is not available
-    if (ctx->cnx_fail != -1) {
-        if (socket_reconnection(ctx) != 0) {
-            zsys_error("socket: error no connection, drop report %lu target=%s ",  payload->timestamp, payload->target_name);
-            goto error;
-        }
+    /* try to reconnect the socket before building the document */
+    if (ctx->socket_fd == -1) {
+        if (socket_try_reconnect(ctx))
+            return -1;
     }
 
     /*
-     * construct document as following:
      * {
      *    "timestamp": "1529868713854",
      *    "sensor": "test.cluster.lan",
@@ -366,45 +263,56 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     }
     bson_append_document_end(&document, &doc_groups);
 
-    buffer = bson_as_json (&document, &length);
-    if (buffer == NULL) {
-        zsys_error("socket: failed convert report to json");
-        goto error;
+    json_report = bson_as_json(&document, &json_report_length);
+    if (json_report == NULL) {
+        zsys_error("socket: failed to convert report to json string");
+        goto error_bson_to_json;
     }
 
-    if (write(ctx->socket, buffer, length) == -1) {
-        zsys_error("socket: error %d - failed insert timestamp=%lu target=%s ", errno, payload->timestamp, payload->target_name);
+    do {
+        /*
+         * Try to send the serialized report to the endpoint.
+         * If the connection have been lost, try to reconnect and send the report again.
+         * The exponential backoff on socket reconnect prevents consecutive attempts.
+         */
+        errno = 0;
+        nbsend = send(ctx->socket_fd, json_report, json_report_length, MSG_NOSIGNAL);
+        if (nbsend == -1) {
+            zsys_error("socket: sending the report failed with error: %s", strerror(errno));
 
-        // start reconnection with exponential backoff
-        if (socket_reconnection(ctx) == 0 ) {
-            if (write(ctx->socket, buffer, length) == -1) {
-                zsys_error("socket: error %d - failed insert timestamp=%lu target=%s ", errno, payload->timestamp, payload->target_name);
-                goto error;
+            if (retry_once) {
+                zsys_info("socket: connection has been lost, attempting to reconnect...");
+                if (!socket_try_reconnect(ctx))
+                    continue;
             }
-        } else {
-            goto error;
+
+            goto error_socket_disconnected;
         }
-    }
-    bson_destroy(&document);
-    return 0;
+    } while (nbsend == -1 && retry_once--);
 
-error:
-    bson_destroy(&document);
-    return -1;    
+    ret = 0;
 
+error_socket_disconnected:
+    bson_free(json_report);
+error_bson_to_json:
+    bson_destroy(&document);
+    return ret;
 }
 
 static int
-socket_deinitialize(struct storage_module *module __attribute__ ((unused)))
+socket_deinitialize(struct storage_module *module)
 {
     struct socket_context *ctx = module->context;
 
     if (!module->is_initialized)
         return -1;
 
-    close(ctx->socket);
+    if (ctx->socket_fd != -1)
+        close(ctx->socket_fd);
+
     return 0;
 }
+
 static void
 socket_destroy(struct storage_module *module)
 {
