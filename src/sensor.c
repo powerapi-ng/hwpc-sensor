@@ -148,7 +148,7 @@ main(int argc, char **argv)
     zsys_set_max_sockets(0);
 
     /* show build information */
-    zsys_info("build: version %s (rev: %s) (%s - %s)", VERSION_GIT_TAG, VERSION_GIT_REV, __DATE__, __TIME__);
+    zsys_info("build: version %s (rev: %s)", VERSION_GIT_TAG, VERSION_GIT_REV);
 
     /* show Kernel information */
     if (uname(&kernel_info)) {
