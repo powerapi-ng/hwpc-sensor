@@ -198,7 +198,7 @@ perf_context_destroy(struct perf_context *ctx)
 }
 
 static int
-perf_events_group_setup_cpu(struct perf_context *ctx, struct perf_group_cpu_context *cpu_ctx, struct events_group *group, int perf_flags, const char *cpu_id)
+perf_events_group_setup_cpu(struct perf_context *ctx, struct perf_group_cpu_context *cpu_ctx, struct events_group *group, unsigned long perf_flags, const char *cpu_id)
 {
     int group_fd = -1;
     int perf_fd;
@@ -238,7 +238,7 @@ perf_events_group_setup_cpu(struct perf_context *ctx, struct perf_group_cpu_cont
 static int
 perf_events_groups_initialize(struct perf_context *ctx)
 {
-    int perf_flags = 0;
+    unsigned long perf_flags = 0;
     struct events_group *events_group = NULL;
     const char *events_group_name = NULL;
     struct perf_group_context *group_ctx = NULL;
