@@ -21,12 +21,10 @@ RUN dpkg -i /tmp/libpfm4_*.deb /tmp/libpfm4-dev_*.deb && \
     rm /tmp/*.deb
 COPY . /usr/src/hwpc-sensor
 RUN cd /usr/src/hwpc-sensor && \
-    mkdir build && \
-    cd build && \
     GIT_TAG=$(git describe --tags --dirty 2>/dev/null || echo "unknown") \
     GIT_REV=$(git rev-parse HEAD 2>/dev/null || echo "unknown") \
-    cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_C_CLANG_TIDY="clang-tidy" -DWITH_MONGODB="${MONGODB_SUPPORT}" .. && \
-    make -j $(getconf _NPROCESSORS_ONLN)
+    cmake -B build -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_C_CLANG_TIDY="clang-tidy" -DWITH_MONGODB="${MONGODB_SUPPORT}" && \
+    cmake --build build --parallel $(getconf _NPROCESSORS_ONLN)
 
 # sensor runner image (only runtime depedencies):
 FROM ubuntu:22.04 as sensor-runner
