@@ -92,11 +92,9 @@ target_validate_type(enum target_type type, const char *cgroup_path)
     switch (type) {
         case TARGET_TYPE_DOCKER:
             return target_docker_validate(cgroup_path);
-            break;
 
         case TARGET_TYPE_KUBERNETES:
             return target_kubernetes_validate(cgroup_path);
-            break;
 
         default:
             /* other types does not need a validation */
