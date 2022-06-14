@@ -105,54 +105,22 @@ csv_initialize(struct storage_module *module)
         return -1;
     }
 
+    /* check if we can write into the output directory */
+    errno = 0;
+    if (access(ctx->config.output_dir, W_OK)) {
+        zsys_error("csv: output path is not writable: %s", strerror(errno));
+        return -1;
+    }
+
     module->is_initialized = true;
     return 0;
 }
 
 static int
-csv_ping(struct storage_module *module)
+csv_ping(struct storage_module *module __attribute__ ((unused)))
 {
-    struct csv_context *ctx = module->context;
-    char path_buffer[CSV_PATH_BUFFER_SIZE];
-    const char *ping_filename = "hwpc-sensor-csv-module-ping-file";
-    FILE *ping_file = NULL;
-    int ret = -1;
-    int r;
-
-    /* test path buffer length */
-    r = snprintf(path_buffer, CSV_PATH_BUFFER_SIZE, "%s/%s", ctx->config.output_dir, ping_filename);
-    if (r < 0 || r > CSV_PATH_BUFFER_SIZE) {
-        zsys_error("csv: the test file path exceed the maximum length (%d)", CSV_PATH_BUFFER_SIZE);
-        return -1;
-    }
-
-    /* test creating a file in output dir */
-    errno = 0;
-    ping_file = fopen(path_buffer, "w");
-    if (!ping_file) {
-        zsys_error("csv: failed to create test file: %s", strerror(errno));
-        return -1;
-    }
-
-    /* test writing into test file  */
-    errno = 0;
-    if (fputs("test", ping_file) < 0) {
-        zsys_error("csv: failed to write into test file: %s", strerror(errno));
-        goto end;
-    }
-
-    /* remove test file */
-    errno = 0;
-    if (unlink(path_buffer) == -1) {
-        zsys_error("csv: failed to remove test file: %s", strerror(errno));
-        goto end;
-    }
-
-    ret = 0;
-
-end:
-    fclose(ping_file);
-    return ret;
+    /* ping is not needed because the relevant checks are done when initializing the module */
+    return 0;
 }
 
 static int
