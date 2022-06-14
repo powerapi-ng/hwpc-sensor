@@ -45,7 +45,7 @@
 /*
  * CSV_LINE_BUFFER_SIZE stores the maximum length of a line in a group csv output file.
  */
-#define CSV_LINE_BUFFER_SIZE 512
+#define CSV_LINE_BUFFER_SIZE 1024
 
 /*
  * csv_config stores the required information for the module.
