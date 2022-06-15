@@ -127,38 +127,31 @@ csv_ping(struct storage_module *module __attribute__ ((unused)))
 static int
 write_group_header(struct csv_context *ctx, const char *group, FILE *fd, zhashx_t *events)
 {
-    char buffer[CSV_LINE_BUFFER_SIZE];
-    int r;
+    char buffer[CSV_LINE_BUFFER_SIZE] = {0};
+    int pos = 0;
     zlistx_t *events_name = NULL;
     const char *event_name = NULL;
-    int written = 0;
 
-    /* get events name */
     events_name = zhashx_keys(events);
     if (!events_name)
-        goto error;
+        return -1;
 
     /* sort events by name */
     zlistx_set_comparator(events_name, (zlistx_comparator_fn *) strcmp);
     zlistx_sort(events_name);
 
     /* write static elements to buffer */
-    r = snprintf(buffer, CSV_LINE_BUFFER_SIZE, "timestamp,sensor,target,socket,cpu");
-    if (r < 0 || r > CSV_LINE_BUFFER_SIZE)
-        goto error;
-    written += r;
+    pos += snprintf(buffer, CSV_LINE_BUFFER_SIZE, "timestamp,sensor,target,socket,cpu");
 
     /* append dynamic elements (events) to buffer */
     for (event_name = zlistx_first(events_name); event_name; event_name = zlistx_next(events_name)) {
-        r = snprintf(buffer + written, CSV_LINE_BUFFER_SIZE - written, ",%s", event_name);
-        if (r < 0 || r > (CSV_LINE_BUFFER_SIZE - written))
-            goto error;
-        written += r;
+        pos += snprintf(buffer + pos, CSV_LINE_BUFFER_SIZE - pos, ",%s", event_name);
+        if (pos >= CSV_LINE_BUFFER_SIZE)
+            goto error_buffer_too_small;
     }
 
-    /* write header in file */
     if (fprintf(fd, "%s\n", buffer) < 0)
-        goto error;
+        goto error_failed_write;
 
     /* force writing to the disk */
     fflush(fd);
@@ -168,7 +161,8 @@ write_group_header(struct csv_context *ctx, const char *group, FILE *fd, zhashx_
 
     return 0;
 
-error:
+error_failed_write:
+error_buffer_too_small:
     zlistx_destroy(&events_name);
     return -1;
 }
@@ -208,42 +202,30 @@ static int
 write_events_value(struct csv_context *ctx, const char *group, FILE *fd, uint64_t timestamp, const char *target, const char *socket, const char *cpu, zhashx_t *events)
 {
     zlistx_t *events_name = NULL;
-    int r;
-    char buffer[CSV_LINE_BUFFER_SIZE];
-    int written = 0;
+    char buffer[CSV_LINE_BUFFER_SIZE] = {0};
+    int pos = 0;
     const char *event_name = NULL;
     const uint64_t *event_value = NULL;
 
     /* get events name in the order of csv header */
     events_name = zhashx_lookup(ctx->groups_events, group);
-    if (!events_name) {
+    if (!events_name)
         return -1;
-    }
 
     /* write static elements to buffer */
-    r = snprintf(buffer, CSV_LINE_BUFFER_SIZE, "%" PRIu64 ",%s,%s,%s,%s", timestamp, ctx->config.sensor_name, target, socket, cpu);
-    if (r < 0 || r > CSV_LINE_BUFFER_SIZE) {
-        return -1;
-    }
-    written += r;
+    pos += snprintf(buffer, CSV_LINE_BUFFER_SIZE, "%" PRIu64 ",%s,%s,%s,%s", timestamp, ctx->config.sensor_name, target, socket, cpu);
  
     /* write dynamic elements (events) to buffer */
     for (event_name = zlistx_first(events_name); event_name; event_name = zlistx_next(events_name)) {
-        /* get event counter value */
         event_value = zhashx_lookup(events, event_name);
-        if (!event_value) {
+        if (!event_value)
             return -1;
-        }
 
-        /* add event counter value to line buffer */
-        r = snprintf(buffer + written, CSV_LINE_BUFFER_SIZE - written, ",%" PRIu64, *event_value);
-        if (r < 0 || r > (CSV_LINE_BUFFER_SIZE - written)) {
+        pos += snprintf(buffer + pos, CSV_LINE_BUFFER_SIZE - pos, ",%" PRIu64, *event_value);
+        if (pos >= CSV_LINE_BUFFER_SIZE)
             return -1;
-        }
-        written += r;
     }
 
-    /* write line buffer in file */
     if (fprintf(fd, "%s\n", buffer) < 0)
         return -1;
 
