@@ -32,6 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <linux/limits.h>
 
 #include "storage.h"
 #include "storage_csv.h"
@@ -175,33 +176,31 @@ error:
 static int
 open_group_outfile(struct csv_context *ctx, const char *group_name)
 {
-    char path_buffer[CSV_PATH_BUFFER_SIZE];
-    int r;
-    struct stat outfile_stat = {0};
-    FILE *group_fd = NULL;
+    char path[PATH_MAX] = {0};
+    int fd = -1;
+    FILE *file = NULL;
 
-    /* construct group output file path */
-    r = snprintf(path_buffer, CSV_PATH_BUFFER_SIZE, "%s/%s", ctx->config.output_dir, group_name);
-    if (r < 0 || r > CSV_PATH_BUFFER_SIZE) {
-        zsys_error("csv: failed to build path for group=%s", group_name);
+    if (snprintf(path, PATH_MAX, "%s/%s.csv", ctx->config.output_dir, group_name) >= PATH_MAX) {
+        zsys_error("csv: the destination path for output file of group %s is too long", group_name);
         return -1;
     }
 
-    /* check if output file already exists */
-    if (stat(path_buffer, &outfile_stat) != -1) {
-        zsys_error("csv: output file for group=%s already exists", group_name);
-        return -1;
-    }
-
-    /* open/create output file */
     errno = 0;
-    group_fd = fopen(path_buffer, "w");
-    if (!group_fd) {
-        zsys_error("csv: failed to open output file for group=%s: %s", group_name, strerror(errno));
+    fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0644);
+    if (fd == -1) {
+        zsys_error("csv: failed to open output file for group %s: %s", group_name, strerror(errno));
         return -1;
     }
 
-    zhashx_insert(ctx->groups_fd, group_name, group_fd);
+    errno = 0;
+    file = fdopen(fd, "w");
+    if (!file) {
+        zsys_error("csv: failed to associate a stream to output file of group %s: %s", group_name, strerror(errno));
+        close(fd);
+        return -1;
+    }
+
+    zhashx_insert(ctx->groups_fd, group_name, file);
     return 0;
 }
 
@@ -273,10 +272,9 @@ csv_store_report(struct storage_module *module, struct payload *payload)
         group_name = zhashx_cursor(payload->groups);
         group_fd = zhashx_lookup(ctx->groups_fd, group_name);
         if (!group_fd) {
-            if (open_group_outfile(ctx, group_name)) {
-                zsys_error("csv: failed to open outfile for group=%s", group_name);
+            if (open_group_outfile(ctx, group_name))
                 return -1;
-            }
+
             group_fd = zhashx_lookup(ctx->groups_fd, group_name);
             write_header = true;
         }

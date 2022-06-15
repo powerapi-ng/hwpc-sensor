@@ -36,12 +36,6 @@
 
 #include "config.h"
 
-
-/*
- * CSV_PATH_BUFFER_SIZE stores the maximum length of a output dir path.
- */
-#define CSV_PATH_BUFFER_SIZE 256
-
 /*
  * CSV_LINE_BUFFER_SIZE stores the maximum length of a line in a group csv output file.
  */
