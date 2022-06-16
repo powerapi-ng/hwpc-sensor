@@ -92,19 +92,19 @@ parse_config_file_path(int argc, char **argv, char ** config_file_path)
 static int
 parse_frequency(const char *str, unsigned int *frequency)
 {
-    long value;
+    unsigned long value;
     char *str_endp = NULL;
 
     errno = 0;
-    value = strtol(str, &str_endp, 0);
+    value = strtoul(str, &str_endp, 0);
 
     /* check if the string have been fully processed */
-    if (*optarg == '\0' || *str_endp != '\0' || errno) {
-	return -1;
+    if (str == str_endp || *str_endp != '\0' || errno != 0) {
+        return -1;
     }
 
     /* check if the extracted value fit in the destination type before casting */
-    if (value < 0U || value > UINT_MAX) {
+    if (value > UINT_MAX) {
 	return -1;
     }
 
