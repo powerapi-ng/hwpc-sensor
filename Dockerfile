@@ -39,7 +39,7 @@ RUN useradd -d /opt/powerapi -m powerapi && \
     echo "${BUILD_TYPE}" |grep -iq "debug" && apt install -y libasan6 libubsan1 || true && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=libpfm-builder /root/libpfm4*.deb /tmp/
-RUN dpkg -i /tmp/libpfm4_*_amd64.deb && \
+RUN dpkg -i /tmp/libpfm4_*.deb && \
     rm /tmp/*.deb
 COPY --from=sensor-builder /usr/src/hwpc-sensor/build/hwpc-sensor /usr/bin/hwpc-sensor
 RUN setcap "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor && \
