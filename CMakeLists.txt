@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.13)
 project(hwpc-sensor LANGUAGES C)
 
 option(WITH_MONGODB "Build with support for MongoDB storage module" ON)
