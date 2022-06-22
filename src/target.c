@@ -49,7 +49,7 @@ const char *target_types_name[] = {
     [TARGET_TYPE_DOCKER] = "docker",
     [TARGET_TYPE_KUBERNETES] = "k8s",
     [TARGET_TYPE_LIBVIRT] = "libvirt",
-    [TARGET_TYPE_LXC] = "lxc"
+    [TARGET_TYPE_LXC] = "lxc",
 };
 
 enum target_type
