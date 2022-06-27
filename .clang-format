@@ -1,0 +1,15 @@
+---
+BasedOnStyle: Webkit
+Language: Cpp
+ColumnLimit: 140
+SortIncludes: false
+AlignAfterOpenBracket: Align
+PointerAlignment: Right
+BinPackParameters: true
+BinPackArguments: true
+BreakStringLiterals: false
+AlwaysBreakAfterDefinitionReturnType: TopLevel
+AlwaysBreakAfterReturnType: TopLevel
+AlwaysBreakBeforeMultilineStrings: false
+SpaceAfterCStyleCast: true
+Cpp11BracedListStyle: true
