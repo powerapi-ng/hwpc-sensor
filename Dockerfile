@@ -45,6 +45,5 @@ COPY --from=sensor-builder /usr/src/hwpc-sensor/build/hwpc-sensor /usr/bin/hwpc-
 RUN setcap "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor && \
     setcap -v "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor
 COPY docker/entrypoint.sh /entrypoint.sh
-USER powerapi
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["--help"]
