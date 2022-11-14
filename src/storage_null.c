@@ -29,76 +29,61 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdlib.h>
-#include <strings.h>
-
 #include "storage.h"
+#include "storage_null.h"
+#include "config.h"
 
-const char *storage_types_name[] = {
-    [STORAGE_UNKNOWN] = "unknown",
-    [STORAGE_NULL] = "null",
-    [STORAGE_CSV] = "csv",
-    [STORAGE_SOCKET] = "socket",
-#ifdef HAVE_MONGODB
-    [STORAGE_MONGODB] = "mongodb",
-#endif
-};
-
-enum storage_type
-storage_module_get_type(const char *type_name)
+static int
+null_initialize(struct storage_module *module)
 {
-    if (strcasecmp(type_name, storage_types_name[STORAGE_NULL]) == 0) {
-        return STORAGE_NULL;
-    }
+    zsys_warning("null: this output module should be used for debug only, no data will be stored");
 
-    if (strcasecmp(type_name, storage_types_name[STORAGE_CSV]) == 0) {
-        return STORAGE_CSV;
-    }
-
-    if (strcasecmp(type_name, storage_types_name[STORAGE_SOCKET]) == 0) {
-        return STORAGE_SOCKET;
-    }
-
-#ifdef HAVE_MONGODB
-    if (strcasecmp(type_name, storage_types_name[STORAGE_MONGODB]) == 0) {
-        return STORAGE_MONGODB;
-    }
-#endif
-
-    return STORAGE_UNKNOWN;
+    module->is_initialized = true;
+    return 0;
 }
 
-int
-storage_module_initialize(struct storage_module *module)
+static int
+null_ping(struct storage_module *module __attribute__ ((unused)))
 {
-    return (*module->initialize)(module);
+    return 0;
 }
 
-int
-storage_module_ping(struct storage_module *module)
+static int
+null_store_report(struct storage_module *module  __attribute__ ((unused)), struct payload *payload  __attribute__ ((unused)))
 {
-    return (*module->ping)(module);
+    return 0;
 }
 
-int
-storage_module_store_report(struct storage_module *module, struct payload *payload)
+static int
+null_deinitialize(struct storage_module *module)
 {
-    return (*module->store_report)(module, payload);
+    module->is_initialized = false;
+    return 0;
 }
 
-int
-storage_module_deinitialize(struct storage_module *module)
+static void
+null_destroy(struct storage_module *module  __attribute__ ((unused)))
 {
-    return (*module->deinitialize)(module);
+    return;
 }
 
-void
-storage_module_destroy(struct storage_module *module)
+struct storage_module *
+storage_null_create(struct config *config  __attribute__ ((unused)))
 {
+    struct storage_module *module = malloc(sizeof(struct storage_module));
+
     if (!module)
-        return;
+        return NULL;
 
-    (*module->destroy)(module);
-    free(module);
+    module->type = STORAGE_NULL;
+    module->context = NULL;
+    module->is_initialized = false;
+    module->initialize = null_initialize;
+    module->ping = null_ping;
+    module->store_report = null_store_report;
+    module->deinitialize = null_deinitialize;
+    module->destroy = null_destroy;
+
+    return module;
 }
 

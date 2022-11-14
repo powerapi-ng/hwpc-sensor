@@ -47,6 +47,7 @@
 #include "report.h"
 #include "target.h"
 #include "storage.h"
+#include "storage_null.h"
 #include "storage_csv.h"
 #include "storage_socket.h"
 
@@ -59,6 +60,8 @@ setup_storage_module(struct config *config)
 {
     switch (config->storage.type)
     {
+        case STORAGE_NULL:
+            return storage_null_create(config);
         case STORAGE_CSV:
             return storage_csv_create(config);
         case STORAGE_SOCKET:

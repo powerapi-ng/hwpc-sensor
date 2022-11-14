@@ -41,6 +41,7 @@
 enum storage_type
 {
     STORAGE_UNKNOWN,
+    STORAGE_NULL,
     STORAGE_CSV,
     STORAGE_SOCKET,
 #ifdef HAVE_MONGODB

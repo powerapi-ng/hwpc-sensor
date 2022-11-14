@@ -29,76 +29,14 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdlib.h>
-#include <strings.h>
+#ifndef STORAGE_NULL_H
+#define STORAGE_NULL_H
 
-#include "storage.h"
+#include "config.h"
 
-const char *storage_types_name[] = {
-    [STORAGE_UNKNOWN] = "unknown",
-    [STORAGE_NULL] = "null",
-    [STORAGE_CSV] = "csv",
-    [STORAGE_SOCKET] = "socket",
-#ifdef HAVE_MONGODB
-    [STORAGE_MONGODB] = "mongodb",
-#endif
-};
+/*
+ * storage_null_create creates and configure a null storage module.
+ */
+struct storage_module *storage_null_create(struct config *config);
 
-enum storage_type
-storage_module_get_type(const char *type_name)
-{
-    if (strcasecmp(type_name, storage_types_name[STORAGE_NULL]) == 0) {
-        return STORAGE_NULL;
-    }
-
-    if (strcasecmp(type_name, storage_types_name[STORAGE_CSV]) == 0) {
-        return STORAGE_CSV;
-    }
-
-    if (strcasecmp(type_name, storage_types_name[STORAGE_SOCKET]) == 0) {
-        return STORAGE_SOCKET;
-    }
-
-#ifdef HAVE_MONGODB
-    if (strcasecmp(type_name, storage_types_name[STORAGE_MONGODB]) == 0) {
-        return STORAGE_MONGODB;
-    }
-#endif
-
-    return STORAGE_UNKNOWN;
-}
-
-int
-storage_module_initialize(struct storage_module *module)
-{
-    return (*module->initialize)(module);
-}
-
-int
-storage_module_ping(struct storage_module *module)
-{
-    return (*module->ping)(module);
-}
-
-int
-storage_module_store_report(struct storage_module *module, struct payload *payload)
-{
-    return (*module->store_report)(module, payload);
-}
-
-int
-storage_module_deinitialize(struct storage_module *module)
-{
-    return (*module->deinitialize)(module);
-}
-
-void
-storage_module_destroy(struct storage_module *module)
-{
-    if (!module)
-        return;
-
-    (*module->destroy)(module);
-    free(module);
-}
-
+#endif /* STORAGE_NULL_H */

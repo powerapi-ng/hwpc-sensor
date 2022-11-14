@@ -25,6 +25,7 @@ set(SENSOR_SOURCES
     src/report.c
     src/perf.c
     src/storage.c
+    src/storage_null.c
     src/storage_csv.c
     src/storage_socket.c
     src/sensor.c
