@@ -59,7 +59,7 @@ struct hwinfo
 /*
  * hwinfo_create allocate the needed ressources.
  */
-struct hwinfo *hwinfo_create();
+struct hwinfo *hwinfo_create(void);
 
 /*
  * hwinfo_detect discover and store the machine hardware topology.

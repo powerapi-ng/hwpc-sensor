@@ -44,7 +44,7 @@
 #define DEFAULT_CGROUP_BASEPATH "/sys/fs/cgroup/perf_event"
 
 struct config *
-config_create()
+config_create(void)
 {
     struct config *config = malloc(sizeof(struct config));
 
@@ -337,7 +337,7 @@ config_setup_from_file(struct config *config, bson_t * doc)
 }
 
 static void
-print_usage()
+print_usage(void)
 {
     // TODO: write an usage text
 }

@@ -54,17 +54,17 @@ struct pmu_topology
 /*
  * pmu_initialize allocate the resources needed to use the PMUs.
  */
-int pmu_initialize();
+int pmu_initialize(void);
 
 /*
  * pmu_deinitialize free the allocated resources needed to use the PMUs.
  */
-void pmu_deinitialize();
+void pmu_deinitialize(void);
 
 /*
  * pmu_info_create allocate the resources needed for a pmu info container.
  */
-struct pmu_info *pmu_info_create();
+struct pmu_info *pmu_info_create(void);
 
 /*
  * pmu_info_dup duplicate the given pmu info.
@@ -79,7 +79,7 @@ void pmu_info_destroy(struct pmu_info **pmu);
 /*
  * pmu_topology_create allocate the resource needed for a pmu topology container.
  */
-struct pmu_topology *pmu_topology_create();
+struct pmu_topology *pmu_topology_create(void);
 
 /*
  * pmu_topology_destroy free the allocated resource of the pmu topology container.

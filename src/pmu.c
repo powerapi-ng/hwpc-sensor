@@ -36,7 +36,7 @@
 #include "util.h"
 
 int
-pmu_initialize()
+pmu_initialize(void)
 {
     if (pfm_initialize() != PFM_SUCCESS) {
         return -1;
@@ -46,13 +46,13 @@ pmu_initialize()
 }
 
 void
-pmu_deinitialize()
+pmu_deinitialize(void)
 {
     pfm_terminate();
 }
 
 struct pmu_info *
-pmu_info_create()
+pmu_info_create(void)
 {
     struct pmu_info *pmu = malloc(sizeof(struct pmu_info));
     return pmu;
@@ -83,7 +83,7 @@ pmu_info_destroy(struct pmu_info **pmu)
 }
 
 struct pmu_topology *
-pmu_topology_create()
+pmu_topology_create(void)
 {
     struct pmu_topology *topology = malloc(sizeof(struct pmu_topology));
 

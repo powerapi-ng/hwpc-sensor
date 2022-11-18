@@ -36,7 +36,7 @@
 #include "payload.h"
 
 struct payload_cpu_data *
-payload_cpu_data_create()
+payload_cpu_data_create(void)
 {
     struct payload_cpu_data *data = malloc(sizeof(struct payload_cpu_data));
 
@@ -62,7 +62,7 @@ payload_cpu_data_destroy(struct payload_cpu_data **data_ptr)
 }
 
 struct payload_pkg_data *
-payload_pkg_data_create()
+payload_pkg_data_create(void)
 {
     struct payload_pkg_data *data = malloc(sizeof(struct payload_pkg_data));
 
@@ -87,7 +87,7 @@ payload_pkg_data_destroy(struct payload_pkg_data **data_ptr)
 }
 
 struct payload_group_data *
-payload_group_data_create()
+payload_group_data_create(void)
 {
     struct payload_group_data *data = malloc(sizeof(struct payload_group_data));
 

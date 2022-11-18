@@ -85,7 +85,7 @@ perf_event_fd_destroy(int **fd_ptr)
 }
 
 static struct perf_group_cpu_context *
-perf_group_cpu_context_create()
+perf_group_cpu_context_create(void)
 {
     struct perf_group_cpu_context *ctx = malloc(sizeof(struct perf_group_cpu_context));
 
@@ -111,7 +111,7 @@ perf_group_cpu_context_destroy(struct perf_group_cpu_context **ctx)
 }
 
 static struct perf_group_pkg_context *
-perf_group_pkg_context_create()
+perf_group_pkg_context_create(void)
 {
     struct perf_group_pkg_context *ctx = malloc(sizeof(struct perf_group_pkg_context));
 
@@ -559,7 +559,7 @@ cleanup:
 }
 
 int
-perf_try_global_counting_event_open()
+perf_try_global_counting_event_open(void)
 {
     struct perf_event_attr pe = {0};
     int fd;

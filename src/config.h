@@ -83,7 +83,7 @@ struct config
 /*
  * config_create allocate the required resources and setup the default config.
  */
-struct config *config_create();
+struct config *config_create(void);
 
 /*
  * parse_config_file extract the config file path from command line arguments.

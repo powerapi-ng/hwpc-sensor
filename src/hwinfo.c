@@ -37,7 +37,7 @@
 #include "util.h"
 
 static struct hwinfo_pkg *
-hwinfo_pkg_create()
+hwinfo_pkg_create(void)
 {
     struct hwinfo_pkg *pkg = malloc(sizeof(struct hwinfo_pkg));
 
@@ -222,7 +222,7 @@ hwinfo_detect(struct hwinfo *hwinfo)
 }
 
 struct hwinfo *
-hwinfo_create()
+hwinfo_create(void)
 {
     struct hwinfo *hw = malloc(sizeof(struct hwinfo));
 

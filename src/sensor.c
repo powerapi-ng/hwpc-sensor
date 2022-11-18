@@ -209,29 +209,29 @@ main(int argc, char **argv)
 	zsys_error("config: failed to create config container");
 	goto cleanup;
     }
-    if(parse_config_file_path(argc, argv, &config_file_path)){
-	goto cleanup;
+    if (parse_config_file_path(argc, argv, &config_file_path)) {
+        goto cleanup;
     }
-    if(config_file_path != NULL){
-
-      if (!(reader = bson_json_reader_new_from_file (config_file_path, &error))){
-	zsys_error("config: Failed to open config file \"%s\": %s\n", config_file_path, error.message);
-	goto cleanup;
-      }
-      if(bson_json_reader_read (reader, &doc, &error) < 0){
-	zsys_error("config: Error in json parsing:\n%s\n", error.message);
-	goto cleanup;
-      }
-      if(config_setup_from_file(config, &doc)){
-	zsys_error("config: failed to parse the provided config file");
-	goto cleanup;
-      }
+    if (config_file_path != NULL){
+        reader = bson_json_reader_new_from_file (config_file_path, &error);
+        if (!reader) {
+            zsys_error("config: Failed to open config file \"%s\": %s\n", config_file_path, error.message);
+            goto cleanup;
+        }
+        if (bson_json_reader_read (reader, &doc, &error) < 0) {
+            zsys_error("config: Error in json parsing:\n%s\n", error.message);
+            goto cleanup;
+        }
+        if (config_setup_from_file(config, &doc)) {
+            zsys_error("config: failed to parse the provided config file");
+            goto cleanup;
+        }
     }
     else{
-      if (config_setup_from_cli(argc, argv, config)) {
-	zsys_error("config: failed to parse the provided command-line arguments");
-	goto cleanup;
-      }
+        if (config_setup_from_cli(argc, argv, config)) {
+            zsys_error("config: failed to parse the provided command-line arguments");
+            goto cleanup;
+        }
     }
 
     if (config_validate(config)) {

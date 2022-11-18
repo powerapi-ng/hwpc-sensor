@@ -81,7 +81,7 @@ void payload_destroy(struct payload *payload);
 /*
  * payload_group_data_create allocate the resources of an events group data container.
  */
-struct payload_group_data *payload_group_data_create();
+struct payload_group_data *payload_group_data_create(void);
 
 /*
  * payload_group_data_destroy free the allocated resources of the events group data container.
@@ -91,7 +91,7 @@ void payload_group_data_destroy(struct payload_group_data **data_ptr);
 /*
  * payload_pkg_data_create allocate the resources of a package data container.
  */
-struct payload_pkg_data *payload_pkg_data_create();
+struct payload_pkg_data *payload_pkg_data_create(void);
 
 /*
  * payload_pkg_data_destroy free the allocated resources of the package data container.
@@ -101,7 +101,7 @@ void payload_pkg_data_destroy(struct payload_pkg_data **data_ptr);
 /*
  * payload_cpu_data_create allocate the resources of a cpu data container.
  */
-struct payload_cpu_data *payload_cpu_data_create();
+struct payload_cpu_data *payload_cpu_data_create(void);
 
 /*
  * payload_cpu_data_destroy free the allocated resources of the cpu data container.
