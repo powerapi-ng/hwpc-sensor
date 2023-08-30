@@ -120,6 +120,8 @@ target_create(enum target_type type, const char *cgroup_basedir, const char *cgr
 char *
 target_resolve_real_name(struct target *target)
 {
+    char *target_pod_name = NULL;
+    char *target_container_name = NULL;
     char *target_real_name = NULL;
 
     switch (target->type) {
@@ -128,7 +130,11 @@ target_resolve_real_name(struct target *target)
             break;
 
         case TARGET_TYPE_KUBERNETES:
-            target_real_name = target_kubernetes_resolve_name(target);
+            target_container_name = target_kubernetes_container_id(target->cgroup_path);
+            target_pod_name = target_kubernetes_pod_id(target->cgroup_path);
+            target_real_name = target_kubernetes_global_id(target_pod_name, target_container_name);
+            free(target_container_name);
+            free(target_pod_name);
             break;
 
         case TARGET_TYPE_ALL:

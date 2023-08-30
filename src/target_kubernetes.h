@@ -42,7 +42,11 @@ int target_kubernetes_validate(const char *cgroup_path);
 /*
  * target_kubernetes_resolve_name resolve and return the real name of the given target.
  */
-char *target_kubernetes_resolve_name(struct target *target);
+char *target_kubernetes_container_id(char *cgroup_path);
+
+char *target_kubernetes_pod_id(char *cgroup_path);
+
+char *target_kubernetes_global_id(char *pod_id, char *container_id);
 
 #endif /* TARGET_KUBERNETES_H */
 
