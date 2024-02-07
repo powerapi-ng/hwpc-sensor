@@ -79,7 +79,7 @@ build_container_config_path(const char *cgroup_path)
     regmatch_t matches[CONTAINER_ID_REGEX_EXPECTED_MATCHES];
     regoff_t length;
     const char *id = NULL;
-    char buffer[PATH_MAX] = {0};
+    char buffer[PATH_MAX] = {};
     char *config_path = NULL;
 
     if (!regcomp(&re, CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE)) {

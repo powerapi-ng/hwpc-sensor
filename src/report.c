@@ -43,7 +43,7 @@
 struct report_config *
 report_config_create(struct storage_module *storage_module)
 {
-    struct report_config *config = malloc(sizeof(struct report_config));
+    struct report_config *config = (struct report_config *) malloc(sizeof(struct report_config));
 
     if (!config)
         return NULL;
@@ -65,7 +65,7 @@ report_config_destroy(struct report_config *config)
 static struct report_context *
 report_context_create(struct report_config *config, zsock_t *pipe)
 {
-    struct report_context *ctx = malloc(sizeof(struct report_context));
+    struct report_context *ctx = (struct report_context *) malloc(sizeof(struct report_context));
     
     if (!ctx)
         return NULL;
@@ -126,7 +126,7 @@ handle_reporting(struct report_context *ctx)
 void
 reporting_actor(zsock_t *pipe, void *args)
 {
-    struct report_context *ctx = report_context_create(args, pipe);
+    struct report_context *ctx = report_context_create((struct report_config *) args, pipe);
     zsock_t *which = NULL;
    
     if (!ctx) {
@@ -137,7 +137,7 @@ reporting_actor(zsock_t *pipe, void *args)
     zsock_signal(pipe, 0);
 
     while (!ctx->terminated) {
-        which = zpoller_wait(ctx->poller, -1);
+        which = (zsock_t *) zpoller_wait(ctx->poller, -1);
 
         if (zpoller_terminated(ctx->poller)) {
             break;

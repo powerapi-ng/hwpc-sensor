@@ -329,14 +329,14 @@ config_setup_from_cli(int argc, char **argv, struct config *config)
             if (setup_global_events_group(config, optarg)) {
                 return -1;
             }
-            current_events_group = zhashx_lookup(config->events.system, optarg);
+            current_events_group = (struct events_group *) zhashx_lookup(config->events.system, optarg);
             break;
 
             case 'c':
             if (setup_cgroups_events_group(config, optarg)) {
                 return -1;
             }
-            current_events_group = zhashx_lookup(config->events.containers, optarg);
+            current_events_group = (struct events_group *) zhashx_lookup(config->events.containers, optarg);
             break;
 
             case 'o':

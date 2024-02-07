@@ -46,7 +46,7 @@
 struct config *
 config_create(void)
 {
-    struct config *config = malloc(sizeof(struct config));
+    struct config *config = (struct config *) malloc(sizeof(struct config));
 
     if (!config)
         return NULL;
@@ -104,7 +104,7 @@ is_events_group_empty(zhashx_t *events_groups)
 {
     struct events_group *events_group = NULL;
 
-    for (events_group = zhashx_first(events_groups); events_group; events_group = zhashx_next(events_groups)) {
+    for (events_group = (struct events_group *) zhashx_first(events_groups); events_group; events_group = (struct events_group *) zhashx_next(events_groups)) {
         if (zlistx_size(events_group->events) == 0) {
             zsys_error("config: Events group '%s' is empty", events_group->name);
             return -1;

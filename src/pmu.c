@@ -54,7 +54,7 @@ pmu_deinitialize(void)
 struct pmu_info *
 pmu_info_create(void)
 {
-    struct pmu_info *pmu = malloc(sizeof(struct pmu_info));
+    struct pmu_info *pmu = (struct pmu_info *) malloc(sizeof(struct pmu_info));
     return pmu;
 }
 
@@ -64,7 +64,7 @@ pmu_info_dup(struct pmu_info *pmu)
     struct pmu_info *copy = NULL;
 
     if (pmu) {
-        copy = malloc(sizeof(struct pmu_info));
+        copy = (struct pmu_info *) malloc(sizeof(struct pmu_info));
         if (copy) {
             *copy = *pmu;
         }
@@ -85,7 +85,7 @@ pmu_info_destroy(struct pmu_info **pmu)
 struct pmu_topology *
 pmu_topology_create(void)
 {
-    struct pmu_topology *topology = malloc(sizeof(struct pmu_topology));
+    struct pmu_topology *topology = (struct pmu_topology *) malloc(sizeof(struct pmu_topology));
 
     if (!topology)
         return NULL;
@@ -110,10 +110,10 @@ pmu_topology_destroy(struct pmu_topology *topology)
 int
 pmu_topology_detect(struct pmu_topology *topology)
 {
-    pfm_pmu_t pmu = {0};
-    pfm_pmu_info_t pmu_info = {0};
+    pfm_pmu_t pmu = {};
+    pfm_pmu_info_t pmu_info = {};
 
-    for (pmu = PFM_PMU_NONE; pmu < PFM_PMU_MAX; pmu++) {
+    for (pmu = PFM_PMU_NONE; pmu < PFM_PMU_MAX; pmu = static_cast<pfm_pmu_t>(pmu + 1)) {
         if (pfm_get_pmu_info(pmu, &pmu_info) != PFM_SUCCESS)
             continue;
 

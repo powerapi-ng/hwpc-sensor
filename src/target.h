@@ -51,11 +51,6 @@ enum target_type
 };
 
 /*
- * target_types_name stores the name (as string) of the supported target types.
- */
-extern const char *target_types_name[];
-
-/*
  * target stores various information about the target.
  */
 struct target

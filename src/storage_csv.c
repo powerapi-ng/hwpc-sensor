@@ -53,7 +53,7 @@ group_fd_destroy(FILE **fd_ptr)
 static struct csv_context *
 csv_context_create(const char *sensor_name, const char *output_dir)
 {
-    struct csv_context *ctx = malloc(sizeof(struct csv_context));
+    struct csv_context *ctx = (struct csv_context *) malloc(sizeof(struct csv_context));
 
     if (!ctx)
         return NULL;
@@ -84,8 +84,8 @@ csv_context_destroy(struct csv_context *ctx)
 static int
 csv_initialize(struct storage_module *module)
 {
-    struct csv_context *ctx = module->context;
-    struct stat outdir_stat = {0};
+    struct csv_context *ctx = (struct csv_context *) module->context;
+    struct stat outdir_stat = {};
 
     /* create output directory */
     errno = 0;
@@ -129,7 +129,7 @@ csv_ping(struct storage_module *module __attribute__ ((unused)))
 static int
 write_group_header(struct csv_context *ctx, const char *group, FILE *fd, zhashx_t *events)
 {
-    char buffer[CSV_LINE_BUFFER_SIZE] = {0};
+    char buffer[CSV_LINE_BUFFER_SIZE] = {};
     int pos = 0;
     zlistx_t *events_name = NULL;
     const char *event_name = NULL;
@@ -146,7 +146,7 @@ write_group_header(struct csv_context *ctx, const char *group, FILE *fd, zhashx_
     pos += snprintf(buffer, CSV_LINE_BUFFER_SIZE, "timestamp,sensor,target,socket,cpu");
 
     /* append dynamic elements (events) to buffer */
-    for (event_name = zlistx_first(events_name); event_name; event_name = zlistx_next(events_name)) {
+    for (event_name = (const char * ) zlistx_first(events_name); event_name; event_name = (const char * ) zlistx_next(events_name)) {
         pos += snprintf(buffer + pos, CSV_LINE_BUFFER_SIZE - pos, ",%s", event_name);
         if (pos >= CSV_LINE_BUFFER_SIZE)
             goto error_buffer_too_small;
@@ -172,7 +172,7 @@ error_buffer_too_small:
 static int
 open_group_outfile(struct csv_context *ctx, const char *group_name)
 {
-    char path[PATH_MAX] = {0};
+    char path[PATH_MAX] = {};
     int fd = -1;
     FILE *file = NULL;
 
@@ -204,13 +204,13 @@ static int
 write_events_value(struct csv_context *ctx, const char *group, FILE *fd, uint64_t timestamp, const char *target, const char *socket, const char *cpu, zhashx_t *events)
 {
     zlistx_t *events_name = NULL;
-    char buffer[CSV_LINE_BUFFER_SIZE] = {0};
+    char buffer[CSV_LINE_BUFFER_SIZE] = {};
     int pos = 0;
     const char *event_name = NULL;
     const uint64_t *event_value = NULL;
 
     /* get events name in the order of csv header */
-    events_name = zhashx_lookup(ctx->groups_events, group);
+    events_name = (zlistx_t *) zhashx_lookup(ctx->groups_events, group);
     if (!events_name)
         return -1;
 
@@ -218,8 +218,8 @@ write_events_value(struct csv_context *ctx, const char *group, FILE *fd, uint64_
     pos += snprintf(buffer, CSV_LINE_BUFFER_SIZE, "%" PRIu64 ",%s,%s,%s,%s", timestamp, ctx->config.sensor_name, target, socket, cpu);
  
     /* write dynamic elements (events) to buffer */
-    for (event_name = zlistx_first(events_name); event_name; event_name = zlistx_next(events_name)) {
-        event_value = zhashx_lookup(events, event_name);
+    for (event_name = (const char *) zlistx_first(events_name); event_name; event_name = (const char * ) zlistx_next(events_name)) {
+        event_value = (uint64_t *) zhashx_lookup(events, event_name);
         if (!event_value)
             return -1;
 
@@ -237,7 +237,7 @@ write_events_value(struct csv_context *ctx, const char *group, FILE *fd, uint64_
 static int
 csv_store_report(struct storage_module *module, struct payload *payload)
 {
-    struct csv_context *ctx = module->context;
+    struct csv_context *ctx = (struct csv_context *) module->context;
     struct payload_group_data *group_data = NULL;
     const char *group_name = NULL;
     FILE *group_fd = NULL;
@@ -252,22 +252,22 @@ csv_store_report(struct storage_module *module, struct payload *payload)
      * timestamp,sensor,target,socket,cpu,INSTRUCTIONS_RETIRED,LLC_MISSES
      * 1538327257673,grvingt-64,system,0,56,5996,108
      */
-    for (group_data = zhashx_first(payload->groups); group_data; group_data = zhashx_next(payload->groups)) {
-        group_name = zhashx_cursor(payload->groups);
-        group_fd = zhashx_lookup(ctx->groups_fd, group_name);
+    for (group_data = (struct payload_group_data *) zhashx_first(payload->groups); group_data; group_data = (struct payload_group_data *) zhashx_next(payload->groups)) {
+        group_name = (const char *) zhashx_cursor(payload->groups);
+        group_fd = (FILE *) zhashx_lookup(ctx->groups_fd, group_name);
         if (!group_fd) {
             if (open_group_outfile(ctx, group_name))
                 return -1;
 
-            group_fd = zhashx_lookup(ctx->groups_fd, group_name);
+            group_fd = (FILE *) zhashx_lookup(ctx->groups_fd, group_name);
             write_header = true;
         }
 
-        for (pkg_data = zhashx_first(group_data->pkgs); pkg_data; pkg_data = zhashx_next(group_data->pkgs)) {
-            pkg_id = zhashx_cursor(group_data->pkgs);
+        for (pkg_data = (struct payload_pkg_data *) zhashx_first(group_data->pkgs); pkg_data; pkg_data = (struct payload_pkg_data *) zhashx_next(group_data->pkgs)) {
+            pkg_id = (const char *) zhashx_cursor(group_data->pkgs);
 
-            for (cpu_data = zhashx_first(pkg_data->cpus); cpu_data; cpu_data = zhashx_next(pkg_data->cpus)) {
-                cpu_id = zhashx_cursor(pkg_data->cpus);
+            for (cpu_data = (struct payload_cpu_data *) zhashx_first(pkg_data->cpus); cpu_data; cpu_data = (struct payload_cpu_data *) zhashx_next(pkg_data->cpus)) {
+                cpu_id = (const char *) zhashx_cursor(pkg_data->cpus);
 
                 if (write_header) {
                     if (write_group_header(ctx, group_name, group_fd, cpu_data->events)) {
@@ -300,7 +300,7 @@ csv_destroy(struct storage_module *module)
     if (!module)
         return;
 
-    csv_context_destroy(module->context);
+    csv_context_destroy((csv_context *) module->context);
 }
 
 struct storage_module *
@@ -309,7 +309,7 @@ storage_csv_create(struct config *config)
     struct storage_module *module = NULL;
     struct csv_context *ctx = NULL;
 
-    module = malloc(sizeof(struct storage_module));
+    module = (struct storage_module *) malloc(sizeof(struct storage_module));
     if (!module)
         goto error;
 

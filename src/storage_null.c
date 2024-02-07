@@ -70,7 +70,7 @@ null_destroy(struct storage_module *module  __attribute__ ((unused)))
 struct storage_module *
 storage_null_create(struct config *config  __attribute__ ((unused)))
 {
-    struct storage_module *module = malloc(sizeof(struct storage_module));
+    struct storage_module *module = (struct storage_module *) malloc(sizeof(struct storage_module));
 
     if (!module)
         return NULL;
