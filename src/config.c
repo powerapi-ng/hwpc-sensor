@@ -41,7 +41,7 @@
 #include "storage.h"
 
 
-#define DEFAULT_CGROUP_BASEPATH "/sys/fs/cgroup/perf_event"
+#define DEFAULT_CGROUP_BASEPATH "/sys/fs/cgroup"
 
 struct config *
 config_create(void)
