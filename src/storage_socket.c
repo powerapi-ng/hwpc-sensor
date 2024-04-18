@@ -34,6 +34,7 @@
 #include <sys/random.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 #include <netdb.h>
 #include <bson.h>
 
@@ -197,6 +198,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     uint64_t *event_value = NULL;
     char *json_report = NULL;
     size_t json_report_length = 0;
+    struct iovec socket_iov[2] = {0};
     ssize_t nbsend;
     int retry_once = 1;
     int ret = -1;
@@ -269,6 +271,15 @@ socket_store_report(struct storage_module *module, struct payload *payload)
         goto error_bson_to_json;
     }
 
+    /*
+     * PowerAPI socketdb requires a newline character at the end of the json document.
+     * Using POSIX IOV allows to efficiently append it at the end of the json string.
+     */
+    socket_iov[0].iov_base = json_report;
+    socket_iov[0].iov_len = json_report_length;
+    socket_iov[1].iov_base = "\n";
+    socket_iov[1].iov_len = 1;
+
     do {
         /*
          * Try to send the serialized report to the endpoint.
@@ -276,7 +287,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
          * The exponential backoff on socket reconnect prevents consecutive attempts.
          */
         errno = 0;
-        nbsend = send(ctx->socket_fd, json_report, json_report_length, MSG_NOSIGNAL);
+        nbsend = writev(ctx->socket_fd, socket_iov, 2);
         if (nbsend == -1) {
             zsys_error("socket: sending the report failed with error: %s", strerror(errno));
 
