@@ -29,6 +29,7 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <signal.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -141,6 +142,8 @@ main(int argc, char **argv)
     bson_json_reader_t *reader = NULL;
     bson_error_t error;
     bson_t doc = BSON_INITIALIZER;
+
+    signal(SIGPIPE, SIG_IGN);
 
     if (!zsys_init()) {
         fprintf(stderr, "czmq: failed to initialize zsys context\n");
