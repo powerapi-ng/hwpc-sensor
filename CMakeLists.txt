@@ -7,6 +7,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 add_compile_options(-Werror -Wall -Wextra -Wpedantic -Wformat=2 -Wnull-dereference)
 add_link_options(-Wl,-z,relro,-z,now -pie)
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og -fsanitize=address,undefined -fno-omit-frame-pointer")
@@ -31,9 +33,9 @@ set(SENSOR_SOURCES
     src/sensor.c
 )
 
+find_package(LibPFM REQUIRED)
 find_package(PkgConfig)
 pkg_check_modules(CZMQ REQUIRED libczmq)
-#pkg_check_modules(PFM REQUIRED libpfm)
 
 if(WITH_MONGODB)
     pkg_check_modules(MONGOC REQUIRED libmongoc-1.0)
@@ -46,5 +48,5 @@ if(DEFINED ENV{GIT_TAG} AND DEFINED ENV{GIT_REV})
 endif()
 
 add_executable(hwpc-sensor "${SENSOR_SOURCES}")
-target_include_directories(hwpc-sensor SYSTEM PRIVATE "${CZMQ_INCLUDE_DIRS}" "${MONGOC_INCLUDE_DIRS}")
-target_link_libraries(hwpc-sensor "${CZMQ_LIBRARIES}" pfm "${MONGOC_LIBRARIES}")
+target_include_directories(hwpc-sensor SYSTEM PRIVATE "${LIBPFM_INCLUDE_DIRS}" "${CZMQ_INCLUDE_DIRS}" "${MONGOC_INCLUDE_DIRS}")
+target_link_libraries(hwpc-sensor "${LIBPFM_LIBRARIES}" "${CZMQ_LIBRARIES}" "${MONGOC_LIBRARIES}")
