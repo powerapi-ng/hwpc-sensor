@@ -36,6 +36,7 @@ set(SENSOR_SOURCES
 find_package(LibPFM REQUIRED)
 find_package(PkgConfig)
 pkg_check_modules(CZMQ REQUIRED libczmq)
+pkg_check_modules(JSONC REQUIRED json-c)
 
 if(WITH_MONGODB)
     pkg_check_modules(MONGOC REQUIRED libmongoc-1.0)
@@ -48,5 +49,5 @@ if(DEFINED ENV{GIT_TAG} AND DEFINED ENV{GIT_REV})
 endif()
 
 add_executable(hwpc-sensor "${SENSOR_SOURCES}")
-target_include_directories(hwpc-sensor SYSTEM PRIVATE "${LIBPFM_INCLUDE_DIRS}" "${CZMQ_INCLUDE_DIRS}" "${MONGOC_INCLUDE_DIRS}")
-target_link_libraries(hwpc-sensor "${LIBPFM_LIBRARIES}" "${CZMQ_LIBRARIES}" "${MONGOC_LIBRARIES}")
+target_include_directories(hwpc-sensor SYSTEM PRIVATE "${LIBPFM_INCLUDE_DIRS}" "${CZMQ_INCLUDE_DIRS}" "${JSONC_INCLUDE_DIRS}" "${MONGOC_INCLUDE_DIRS}")
+target_link_libraries(hwpc-sensor "${LIBPFM_LIBRARIES}" "${CZMQ_LIBRARIES}" "${JSONC_LIBRARIES}" "${MONGOC_LIBRARIES}")
