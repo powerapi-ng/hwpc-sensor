@@ -81,5 +81,14 @@ int uint64ptrcmp(const uint64_t *a, const uint64_t *b);
  */
 void ptrfree(void **ptr);
 
-#endif /* UTIL_H */
+/*
+ * str_to_uint safely converts a string to an unsigned int.
+ */
+int str_to_uint(const char *str, unsigned int *out);
 
+/*
+ * str_to_int safely converts a string to an integer.
+ */
+int str_to_int(const char *str, int *out);
+
+#endif /* UTIL_H */
