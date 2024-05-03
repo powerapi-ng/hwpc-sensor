@@ -63,7 +63,7 @@ event_config_create(const char *event_name)
     if (!setup_perf_event_attr(event_name, &attr)) {
         config = malloc(sizeof(struct event_config));
         if (config) {
-            config->name = event_name;
+            snprintf(config->name, NAME_MAX, "%s", event_name);
             config->attr = attr;
         }
     }
@@ -79,7 +79,7 @@ event_config_dup(struct event_config *config)
     if (config) {
         copy = malloc(sizeof(struct event_config));
         if (copy) {
-            copy->name = config->name;
+            snprintf(copy->name, NAME_MAX, "%s", config->name);
             copy->attr = config->attr;
         }
     }
@@ -102,7 +102,7 @@ events_group_create(const char *name)
     struct events_group *group = malloc(sizeof(struct events_group));
 
     if (group) {
-        group->name = name;
+        snprintf(group->name, NAME_MAX, "%s", name);
         group->type = MONITOR_ALL_CPU_PER_SOCKET; /* by default, monitor all cpu of the available socket(s) */
 
         group->events = zlistx_new();
@@ -121,7 +121,7 @@ events_group_dup(struct events_group *group)
     if (group) {
         copy = malloc(sizeof(struct events_group));
         if (copy) {
-            copy->name = group->name;
+            snprintf(copy->name, NAME_MAX, "%s", group->name);
             copy->type = group->type;
             copy->events = zlistx_dup(group->events);
         }
