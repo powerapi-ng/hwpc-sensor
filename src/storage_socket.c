@@ -261,7 +261,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
         }
     }
 
-    json_report = json_object_to_json_string_length(jobj, JSON_C_TO_STRING_PLAIN, &json_report_length);
+    json_report = json_object_to_json_string_length(jobj, JSON_C_TO_STRING_PLAIN | JSON_C_TO_STRING_NOSLASHESCAPE, &json_report_length);
     if (json_report == NULL) {
         zsys_error("socket: Failed to convert report to json string");
         goto error_json_to_string;
