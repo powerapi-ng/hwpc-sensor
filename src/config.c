@@ -41,27 +41,23 @@
 #include "storage.h"
 
 
-#define DEFAULT_CGROUP_BASEPATH "/sys/fs/cgroup"
-
 struct config *
 config_create(void)
 {
     struct config *config = malloc(sizeof(struct config));
 
     if (!config)
-	return NULL;
+        return NULL;
 
     /* sensor default config */
     config->sensor.verbose = 0;
     config->sensor.frequency = 1000;
-    config->sensor.cgroup_basepath = DEFAULT_CGROUP_BASEPATH;
-    config->sensor.name = NULL;
+    snprintf(config->sensor.cgroup_basepath, PATH_MAX, "%s", "/sys/fs/cgroup");
+    gethostname(config->sensor.name, HOST_NAME_MAX);
 
     /* storage default config */
-    config->storage.type = STORAGE_CSV;
-    config->storage.U_flag = NULL;
-    config->storage.D_flag = NULL;
-    config->storage.C_flag = NULL;
+    config->storage.type = STORAGE_UNKNOWN;
+    memset(&config->storage, 0, sizeof(struct config_storage));
 
     /* events default config */
     config->events.system = NULL;
@@ -458,35 +454,30 @@ config_validate(struct config *config)
     const struct config_storage *storage = &config->storage;
     const struct config_events *events = &config->events;
 
-    if (!sensor->name) {
-	zsys_info("config: you must provide a sensor name");
-	return -1;
+    if (!strlen(sensor->name)) {
+	    zsys_error("config: You must provide a sensor name");
+	    return -1;
     }
 
     if (zhashx_size(events->system) == 0 && zhashx_size(events->containers) == 0) {
-	zsys_error("config: you must provide event(s) to monitor");
-	return -1;
+	    zsys_error("config: You must provide event(s) to monitor");
+	    return -1;
     }
 
-    if (storage->type == STORAGE_CSV && (!storage->U_flag)) {
-	zsys_error("config: the CSV storage module requires the 'U' flag to be set");
-	return -1;
+    if (storage->type == STORAGE_CSV && !strlen(storage->csv.outdir)) {
+	    zsys_error("config: CSV storage module requires the 'U' flag to be set");
+	    return -1;
     }
 
-    if (storage->type == STORAGE_SOCKET && (!storage->U_flag || !storage->P_flag)) {
-	zsys_error("config: the socket storage module requires the 'U' and 'P' flags to be set");
-	return -1;
-    }
-
-    if(storage->type == STORAGE_SOCKET && config->storage.P_flag == 0){
-      zsys_error("config: %d is not a valid port number", config->storage.P_flag);
-      return -1;
+    if (storage->type == STORAGE_SOCKET && (!strlen(storage->socket.hostname) || storage->socket.port == 0)) {
+	    zsys_error("config: Socket storage module requires the 'U' and 'P' flags to be set");
+	    return -1;
     }
 
 #ifdef HAVE_MONGODB
-    if (storage->type == STORAGE_MONGODB && (!storage->U_flag || !storage->D_flag || !storage->C_flag)) {
-	zsys_error("config: the MongoDB storage module requires the 'U', 'D' and 'C' flags to be set");
-	return -1;
+    if (storage->type == STORAGE_MONGODB && (!strlen(storage->mongodb.uri) || !strlen(storage->mongodb.database) || !strlen(storage->mongodb.collection))) {
+	    zsys_error("config: MongoDB storage module requires the 'U', 'D' and 'C' flags to be set");
+	    return -1;
     }
 #endif
 
@@ -497,7 +488,7 @@ void
 config_destroy(struct config *config)
 {
     if (!config)
-	return;
+	    return;
 
     zhashx_destroy(&config->events.containers);
     zhashx_destroy(&config->events.system);

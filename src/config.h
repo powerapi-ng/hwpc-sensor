@@ -45,8 +45,8 @@ struct config_sensor
 {
     unsigned int verbose;
     unsigned int frequency;
-    const char *cgroup_basepath;
-    const char *name;
+    char cgroup_basepath[PATH_MAX];
+    char name[HOST_NAME_MAX];
 };
 
 /*
