@@ -338,7 +338,7 @@ storage_socket_create(struct config *config)
     if (!module)
         goto error;
 
-    ctx = socket_context_create(config->sensor.name, config->storage.U_flag, config->storage.P_flag);
+    ctx = socket_context_create(config->sensor.name, config->storage.socket.hostname, config->storage.socket.port);
     if (!ctx)
         goto error;
 

@@ -33,7 +33,7 @@
 #define CONFIG_H
 
 #include <czmq.h>
-#include <bson.h>
+#include <limits.h>
 
 #include "events.h"
 #include "storage.h"
@@ -55,10 +55,24 @@ struct config_sensor
 struct config_storage
 {
     enum storage_type type;
-    const char *U_flag;
-    const char *D_flag;
-    const char *C_flag;
-    int P_flag;
+    union {
+        struct {
+            char outdir[PATH_MAX];
+        } csv;
+
+        struct {
+            char hostname[HOST_NAME_MAX];
+            unsigned int port;
+        } socket;
+
+        #ifdef HAVE_MONGODB
+        struct {
+            char uri[PATH_MAX];
+            char database[NAME_MAX];
+            char collection[NAME_MAX];
+        } mongodb;
+        #endif
+    };
 };
 
 /*
