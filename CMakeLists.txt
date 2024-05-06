@@ -15,6 +15,8 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og -fsanitize=address,undefined
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2 -fstack-protector-strong")
 
 set(SENSOR_SOURCES
+    src/config_cli.c
+    src/config_json.c
     src/config.c
     src/util.c
     src/target.c
