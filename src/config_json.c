@@ -424,7 +424,7 @@ config_setup_from_json_file(struct config *config, const char *filepath)
 
     root = json_object_from_fd(fd);
     if (!root) {
-        zsys_error("config: json: Failed to parse configuration file: %s", json_util_get_last_err());
+        zsys_error("config: json: Failed to parse configuration file");
         goto cleanup;
     }
 
