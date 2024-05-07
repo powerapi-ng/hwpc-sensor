@@ -120,10 +120,19 @@ setup_storage_type(struct config *config, json_object *storage)
 }
 
 static int
-setup_storage_null_parameters(struct config *config __unused, json_object *storage_obj __unused)
+setup_storage_null_parameters(struct config *config __unused, json_object *storage_obj)
 {
-    zsys_error("config: json: The Null storage module does not take any parameter");
-    return -1;
+    json_object_object_foreach(storage_obj, key, value) {
+        if (!strcasecmp(key, "type")) {
+            continue;
+        }
+        else {
+            zsys_error("config: json: Invalid parameter '%s' for Null storage module", key);
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 static int
