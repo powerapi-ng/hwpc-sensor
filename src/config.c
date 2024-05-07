@@ -71,6 +71,21 @@ config_create(void)
     return config;
 }
 
+static int
+is_events_group_empty(zhashx_t *events_groups)
+{
+    struct events_group *events_group = NULL;
+
+    for (events_group = zhashx_first(events_groups); events_group; events_group = zhashx_next(events_groups)) {
+        if (zlistx_size(events_group->events) == 0) {
+            zsys_error("config: Events group '%s' is empty", events_group->name);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 int
 config_validate(struct config *config)
 {
@@ -86,6 +101,10 @@ config_validate(struct config *config)
     if (zhashx_size(events->system) == 0 && zhashx_size(events->containers) == 0) {
 	    zsys_error("config: You must provide event(s) to monitor");
 	    return -1;
+    }
+
+    if (is_events_group_empty(events->system) || is_events_group_empty(events->containers)) {
+        return -1;
     }
 
     if (storage->type == STORAGE_CSV && !strlen(storage->csv.outdir)) {
