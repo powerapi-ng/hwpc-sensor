@@ -140,6 +140,18 @@ setup_cgroups_events_group(struct config *config, const char *group_name)
 }
 
 static int
+setup_cgroups_events_group_type(struct events_group *events_group, enum events_group_monitoring_type type)
+{
+    if (!events_group) {
+        zsys_error("config: cli: No events group defined before setting type");
+        return -1;
+    }
+
+    events_group->type = type;
+    return 0;
+}
+
+static int
 append_event_to_events_group(struct events_group *events_group, const char *event_name)
 {
     if (!events_group) {
@@ -328,7 +340,9 @@ config_setup_from_cli(int argc, char **argv, struct config *config)
             break;
 
             case 'o':
-            current_events_group->type = MONITOR_ONE_CPU_PER_SOCKET;
+            if (setup_cgroups_events_group_type(current_events_group, MONITOR_ONE_CPU_PER_SOCKET)) {
+                return -1;
+            }
             break;
 
             case 'e':
