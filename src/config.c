@@ -112,7 +112,7 @@ config_validate(struct config *config)
 	    return -1;
     }
 
-    if (storage->type == STORAGE_SOCKET && (!strlen(storage->socket.hostname) || storage->socket.port == 0)) {
+    if (storage->type == STORAGE_SOCKET && (!strlen(storage->socket.hostname) || !strlen(storage->socket.port))) {
 	    zsys_error("config: Socket storage module requires the 'U' and 'P' flags to be set");
 	    return -1;
     }

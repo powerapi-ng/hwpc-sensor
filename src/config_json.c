@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <json.h>
+#include <netdb.h>
 
 #include "config_json.h"
 #include "util.h"
@@ -164,7 +165,7 @@ static int
 setup_storage_socket_parameters(struct config *config, json_object *storage_obj)
 {
     const char *host = NULL;
-    int port = 0;
+    const char *port = NULL;
 
     json_object_object_foreach(storage_obj, key, value) {
         if (!strcasecmp(key, "type")) {
@@ -178,13 +179,11 @@ setup_storage_socket_parameters(struct config *config, json_object *storage_obj)
             }
         }
         else if (!strcasecmp(key, "port")) {
-            errno = 0;
-            port = json_object_get_int(value);
-            if (errno != 0 || port < 0) {
-                zsys_error("config: json: Socket output port number invalid");
+            port = json_object_get_string(value);
+            if (snprintf(config->storage.socket.port, NI_MAXSERV, "%s", port) >= NI_MAXSERV) {
+                zsys_error("config: json: Socket output port is too long");
                 return -1;
             }
-            config->storage.socket.port = (unsigned int) port;
         }
         else {
             zsys_error("config: json: Invalid parameter '%s' for Socket storage module", key);

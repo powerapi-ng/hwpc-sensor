@@ -36,13 +36,6 @@
 #include "config.h"
 
 /*
- * PORT_STR_BUFFER_SIZE stores the maximum length of the buffer used to convert the
- * port stored as uint64_t to a null terminated string.
- * Typically, the port is between the 0-65535 range.
- */
-#define PORT_STR_BUFFER_SIZE 8
-
-/*
  * MAX_DURATION_CONNECTION_RETRY stores the maximal value of a connection retry. (in seconds)
  */
 #define MAX_DURATION_CONNECTION_RETRY 1800
@@ -54,7 +47,7 @@ struct socket_config
 {
     const char *sensor_name;
     const char *address;
-    int port;
+    const char *port;
 };
 
 /*

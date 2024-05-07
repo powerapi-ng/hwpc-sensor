@@ -43,7 +43,7 @@
 #include "storage_socket.h"
 
 static struct socket_context *
-socket_context_create(const char *sensor_name, const char *address, const int port)
+socket_context_create(const char *sensor_name, const char *address, const char *port)
 {
     struct socket_context *ctx = malloc(sizeof(struct socket_context));
 
@@ -75,7 +75,6 @@ socket_resolve_and_connect(struct socket_context *ctx)
 {
     struct addrinfo hints = {0};
     struct addrinfo *result = NULL, *rp = NULL;
-    char port_str[PORT_STR_BUFFER_SIZE] = {0};
     int sfd = -1;
     int ret = -1;
 
@@ -83,10 +82,7 @@ socket_resolve_and_connect(struct socket_context *ctx)
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
-    /* convert port number to string */
-    snprintf(port_str, PORT_STR_BUFFER_SIZE, "%d", ctx->config.port);
-
-    if (getaddrinfo(ctx->config.address, port_str, &hints, &result)) {
+    if (getaddrinfo(ctx->config.address, ctx->config.port, &hints, &result)) {
         zsys_error("socket: Unable to resolve address: %s", ctx->config.address);
         goto error_no_getaddrinfo;
     }
@@ -99,7 +95,7 @@ socket_resolve_and_connect(struct socket_context *ctx)
 
         ret = connect(sfd, rp->ai_addr, rp->ai_addrlen);
         if (!ret) {
-            zsys_info("socket: Successfully connected to %s:%d", ctx->config.address, ctx->config.port);
+            zsys_info("socket: Successfully connected to %s:%s", ctx->config.address, ctx->config.port);
             break;
         }
 
@@ -108,7 +104,7 @@ socket_resolve_and_connect(struct socket_context *ctx)
 
     /* no connection have been established */
     if (ret == -1) {
-        zsys_error("socket: Failed to connect to %s:%d", ctx->config.address, ctx->config.port);
+        zsys_error("socket: Failed to connect to %s:%s", ctx->config.address, ctx->config.port);
         goto error_not_connected;
     }
 

@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <netdb.h>
 
 #include "config_cli.h"
 #include "config_json.h"
@@ -200,8 +201,8 @@ setup_storage_socket_parameters(struct config *config, int opt, const char *opta
         break;
 
         case 'P': /* Destination port number */
-        if (str_to_uint(optarg, &config->storage.socket.port)) {
-            zsys_error("config: cli: Socket output port number invalid");
+        if (snprintf(config->storage.socket.port, NI_MAXSERV, "%s", optarg) >= NI_MAXSERV) {
+            zsys_error("config: cli: Socket output port is too long");
             return -1;
         }
         break;

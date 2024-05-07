@@ -34,6 +34,7 @@
 
 #include <czmq.h>
 #include <limits.h>
+#include <netdb.h>
 
 #include "events.h"
 #include "storage.h"
@@ -62,7 +63,7 @@ struct config_storage
 
         struct {
             char hostname[HOST_NAME_MAX];
-            unsigned int port;
+            char port[NI_MAXSERV];
         } socket;
 
         #ifdef HAVE_MONGODB
