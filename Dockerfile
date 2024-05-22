@@ -14,7 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_TYPE=Debug
 ARG MONGODB_SUPPORT=ON
 RUN apt update && \
-    apt install -y build-essential git clang-tidy cmake pkg-config libczmq-dev libsystemd-dev uuid-dev && \
+    apt install -y build-essential git clang-tidy cmake pkg-config libczmq-dev libjson-c-dev libsystemd-dev uuid-dev && \
     echo "${MONGODB_SUPPORT}" |grep -iq "on" && apt install -y libmongoc-dev || true
 COPY --from=libpfm-builder /root/libpfm4*.deb /tmp/
 RUN dpkg -i /tmp/libpfm4_*.deb /tmp/libpfm4-dev_*.deb && \
@@ -34,7 +34,7 @@ ARG MONGODB_SUPPORT=ON
 ARG FILE_CAPABILITY=CAP_SYS_ADMIN
 RUN useradd -d /opt/powerapi -m powerapi && \
     apt update && \
-    apt install -y libczmq4 libcap2-bin && \
+    apt install -y libczmq4 libjson-c5 libcap2-bin && \
     echo "${MONGODB_SUPPORT}" |grep -iq "on" && apt install -y libmongoc-1.0-0 || true && \
     echo "${BUILD_TYPE}" |grep -iq "debug" && apt install -y libasan6 libubsan1 || true && \
     rm -rf /var/lib/apt/lists/*
