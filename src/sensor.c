@@ -155,8 +155,8 @@ main(int argc, char **argv)
 
     /* show Kernel information */
     if (uname(&kernel_info)) {
-	zsys_error("uname: failed to get Kernel information");
-	goto cleanup;
+	    zsys_error("uname: failed to get Kernel information");
+	    goto cleanup;
     }
     zsys_info("uname: %s %s %s %s", kernel_info.sysname, kernel_info.release, kernel_info.version, kernel_info.machine);
 
