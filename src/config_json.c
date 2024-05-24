@@ -106,6 +106,7 @@ setup_storage_type(struct config *config, json_object *storage)
     enum storage_type type;
 
     if (!json_object_object_get_ex(storage, "type", &storage_type_obj)) {
+        zsys_error("config: json: The storage module 'type' field is required");
         return -1;
     }
 
@@ -245,7 +246,6 @@ handle_storage_parameters(struct config *config, json_object *storage_obj)
      * It is therefore required to know the storage type before processing any field.
      */
     if (setup_storage_type(config, storage_obj)) {
-        zsys_error("config: json: The storage module 'type' field is required");
         return -1;
     }
 
