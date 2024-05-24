@@ -34,7 +34,9 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <bson.h>
+#include <sys/stat.h>
+#include <sys/vfs.h>
+#include <linux/magic.h>
 
 #include "config.h"
 #include "events.h"
@@ -72,6 +74,32 @@ config_create(void)
 }
 
 static int
+check_cgroup_basepath(const char *cgroup_basepath)
+{
+    struct statfs sfs;
+
+    if (statfs(cgroup_basepath, &sfs)) {
+        zsys_error("config: Failed to get cgroup basepath (%s) information: %s", cgroup_basepath, strerror(errno));
+        return -1;
+    }
+
+    if (sfs.f_type == CGROUP_SUPER_MAGIC) {
+        return 0;
+    }
+
+    if (sfs.f_type == CGROUP2_SUPER_MAGIC) {
+        return 0;
+    }
+
+    if (sfs.f_type == TMPFS_MAGIC) {
+        zsys_warning("config: You are probably using a unified cgroupv2 basepath on a machine using the legacy cgroupv1 hierarchy!");
+    }
+
+    zsys_error("config: Invalid cgroup basepath: %s", cgroup_basepath);
+    return -1;
+}
+
+static int
 is_events_group_empty(zhashx_t *events_groups)
 {
     struct events_group *events_group = NULL;
@@ -96,6 +124,15 @@ config_validate(struct config *config)
     if (!strlen(sensor->name)) {
 	    zsys_error("config: You must provide a sensor name");
 	    return -1;
+    }
+
+    if (!strlen(sensor->cgroup_basepath)) {
+        zsys_error("config: You must provide a cgroup basepath");
+        return -1;
+    }
+
+    if (check_cgroup_basepath(sensor->cgroup_basepath)) {
+        return -1;
     }
 
     if (zhashx_size(events->system) == 0 && zhashx_size(events->containers) == 0) {
