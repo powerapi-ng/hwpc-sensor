@@ -51,7 +51,7 @@ setup_verbose(struct config *config, json_object *verbose_obj)
     errno = 0;
     verbose = json_object_get_int(verbose_obj);
     if (errno != 0 || verbose < 0) {
-        zsys_error("config: json: Verbose value is invalid");
+        zsys_error("config: json: Verbose value is invalid (boolean or positive integer expected)");
         return -1;
     }
 
@@ -95,7 +95,7 @@ setup_frequency(struct config *config, json_object *frequency_obj)
     errno = 0;
     frequency = json_object_get_int(frequency_obj);
     if (errno != 0 || frequency < 0) {
-        zsys_error("config: json: Frequency value is invalid");
+        zsys_error("config: json: Frequency value is invalid (positive integer expected)");
         return -1;
     }
 
