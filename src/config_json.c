@@ -37,6 +37,11 @@
 #include "config_json.h"
 #include "util.h"
 
+/*
+ * JSON_FILE_BUFFER_SIZE is the size of the buffer where the content of the json config file will be stored.
+ */
+#define JSON_FILE_BUFFER_SIZE 4096
+
 
 static int
 setup_verbose(struct config *config, json_object *verbose_obj)
@@ -408,6 +413,93 @@ process_json_fields(struct config *config, json_object *root)
     return 0;
 }
 
+static int
+read_file_content(int fd, char *buffer, size_t buffer_size)
+{
+    struct stat sb;
+    ssize_t read_bytes = 0;
+
+    if (fstat(fd, &sb) == -1) {
+        zsys_error("config: json: Failed to get configuration file information: %s", strerror(errno));
+        return -1;
+    }
+
+    if (sb.st_size == 0) {
+        zsys_error("config: json: Configuration file is empty");
+        return -1;
+    }
+
+    if (sb.st_size >= (off_t) buffer_size) {
+        zsys_error("config: json: Configuration file size is too big (current: %lu KB, max: %lu KB)", sb.st_size / 1024, buffer_size / 1024);
+        return -1;
+    }
+
+    read_bytes = read(fd, buffer, buffer_size - 1);
+    if (read_bytes == -1) {
+        zsys_error("config: json: Failed to read the configuration file: %s", strerror(errno));
+        return -1;
+    }
+
+    buffer[read_bytes] = '\0';
+    return 0;
+}
+
+static void
+compute_current_position_from_offset(const char *str, size_t target_offset, size_t *line, size_t *column)
+{
+    size_t current_offset = 0;
+
+    *line = 1;
+    *column = 1;
+    for (current_offset = 0; current_offset < target_offset; current_offset++)
+    {
+        if (str[current_offset] == '\n') {
+            (*line)++;
+            *column = 1;
+        }
+        else {
+            (*column)++;
+        }
+    }
+}
+
+static int
+parse_json_configuration_file_from_fd(int fd, json_object **obj)
+{
+    int ret = -1;
+    char buffer[JSON_FILE_BUFFER_SIZE] = {0};
+    json_tokener *tok = NULL;
+    enum json_tokener_error jerr;
+    size_t line, column;
+
+    if (read_file_content(fd, buffer, JSON_FILE_BUFFER_SIZE)) {
+        goto error_read_content;
+    }
+
+    tok = json_tokener_new();
+    if (!tok) {
+        zsys_error("config: json: Failed to initialize json tokener");
+        goto error_init_tokener;
+    }
+
+    *obj = json_tokener_parse_ex(tok, buffer, (int) strlen(buffer) + 1);
+    jerr = json_tokener_get_error(tok);
+
+    if (jerr != json_tokener_success) {
+        compute_current_position_from_offset(buffer, json_tokener_get_parse_end(tok), &line, &column);
+        zsys_error("config: json: Failed to parse json: %s (line: %lu, column: %lu)", json_tokener_error_desc(jerr), line, column);
+        goto error_tokener_parse;
+    }
+
+    ret = 0;
+
+error_tokener_parse:
+    json_tokener_free(tok);
+error_read_content:
+error_init_tokener:
+    return ret;
+}
+
 int
 config_setup_from_json_file(struct config *config, const char *filepath)
 {
@@ -418,24 +510,24 @@ config_setup_from_json_file(struct config *config, const char *filepath)
     fd = open(filepath, O_RDONLY);
     if (fd < 0) {
         zsys_error("config: json: Failed to open configuration file: %s", strerror(errno));
-        goto cleanup;
+        goto error_open_file;
     }
 
-    root = json_object_from_fd(fd);
-    if (!root) {
-        zsys_error("config: json: Failed to parse configuration file");
-        goto cleanup;
+    if (parse_json_configuration_file_from_fd(fd, &root)) {
+        goto error_parse_file;
     }
 
     if (process_json_fields(config, root)) {
         zsys_error("config: json: Failed to process the given configuration file");
-        goto cleanup;
+        goto error_process_fields;
     }
 
     ret = 0;
 
-cleanup:
+error_parse_file:
+error_process_fields:
     close(fd);
     json_object_put(root);
+error_open_file:
     return ret;
 }
