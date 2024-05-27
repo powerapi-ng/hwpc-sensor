@@ -182,12 +182,12 @@ setup_storage_module(struct config *config, const char *module_name)
 }
 
 static int
-setup_storage_csv_parameters(struct config *config, int opt, const char *optarg)
+setup_storage_csv_parameters(struct config *config, int opt, const char *value)
 {
     switch (opt)
     {
         case 'U': /* Output directory path */
-        if (snprintf(config->storage.csv.outdir, PATH_MAX, "%s", optarg) >= PATH_MAX) {
+        if (snprintf(config->storage.csv.outdir, PATH_MAX, "%s", value) >= PATH_MAX) {
             zsys_error("config: cli: CSV output directory path is too long");
             return -1;
         }
@@ -201,19 +201,19 @@ setup_storage_csv_parameters(struct config *config, int opt, const char *optarg)
 }
 
 static int
-setup_storage_socket_parameters(struct config *config, int opt, const char *optarg)
+setup_storage_socket_parameters(struct config *config, int opt, const char *value)
 {
     switch (opt)
     {
         case 'U': /* Destination IP/hostname */
-        if (snprintf(config->storage.socket.hostname, HOST_NAME_MAX, "%s", optarg) >= HOST_NAME_MAX) {
+        if (snprintf(config->storage.socket.hostname, HOST_NAME_MAX, "%s", value) >= HOST_NAME_MAX) {
             zsys_error("config: cli: Socket output host is too long");
             return -1;
         }
         break;
 
         case 'P': /* Destination port number */
-        if (snprintf(config->storage.socket.port, NI_MAXSERV, "%s", optarg) >= NI_MAXSERV) {
+        if (snprintf(config->storage.socket.port, NI_MAXSERV, "%s", value) >= NI_MAXSERV) {
             zsys_error("config: cli: Socket output port is too long");
             return -1;
         }
@@ -228,26 +228,26 @@ setup_storage_socket_parameters(struct config *config, int opt, const char *opta
 
 #ifdef HAVE_MONGODB
 static int
-setup_storage_mongodb_parameters(struct config *config, int opt, const char *optarg)
+setup_storage_mongodb_parameters(struct config *config, int opt, const char *value)
 {
     switch (opt)
     {
         case 'U': /* MongoDB URI (mongodb://x) */
-        if (snprintf(config->storage.mongodb.uri, PATH_MAX, "%s", optarg) >= PATH_MAX) {
+        if (snprintf(config->storage.mongodb.uri, PATH_MAX, "%s", value) >= PATH_MAX) {
             zsys_error("config: cli: MongoDB URI is too long");
             return -1;
         }
         break;
 
         case 'D': /* MongoDB Database name */
-        if (snprintf(config->storage.mongodb.database, NAME_MAX, "%s", optarg) >= NAME_MAX) {
+        if (snprintf(config->storage.mongodb.database, NAME_MAX, "%s", value) >= NAME_MAX) {
             zsys_error("config: cli: MongoDB database name is too long");
             return -1;
         }
         break;
 
         case 'C': /* MongoDB Collection name */
-        if (snprintf(config->storage.mongodb.collection, NAME_MAX, "%s", optarg) >= NAME_MAX) {
+        if (snprintf(config->storage.mongodb.collection, NAME_MAX, "%s", value) >= NAME_MAX) {
             zsys_error("config: cli: MongoDB collection name is too long");
             return -1;
         }
@@ -262,7 +262,7 @@ setup_storage_mongodb_parameters(struct config *config, int opt, const char *opt
 #endif
 
 static int
-setup_storage_parameters(struct config *config, int opt, const char *optarg)
+setup_storage_parameters(struct config *config, int opt, const char *value)
 {
     switch (config->storage.type)
     {
@@ -270,14 +270,14 @@ setup_storage_parameters(struct config *config, int opt, const char *optarg)
         return 0; /* Ignore parameters */
 
         case STORAGE_CSV:
-        return setup_storage_csv_parameters(config, opt, optarg);
+        return setup_storage_csv_parameters(config, opt, value);
 
         case STORAGE_SOCKET:
-        return setup_storage_socket_parameters(config, opt, optarg);
+        return setup_storage_socket_parameters(config, opt, value);
 
 #ifdef HAVE_MONGODB
         case STORAGE_MONGODB:
-        return setup_storage_mongodb_parameters(config, opt, optarg);
+        return setup_storage_mongodb_parameters(config, opt, value);
 #endif
 
         default:

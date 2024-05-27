@@ -279,14 +279,13 @@ static int
 setup_perf_events_group_events(struct events_group *events_group, json_object *events_group_obj)
 {
     const char *event_name = NULL;
-    size_t i;
 
     if (!json_object_is_type(events_group_obj, json_type_array)) {
         zsys_error("config: json: Invalid 'events' field type for group '%s'", events_group->name);
         return -1;
     }
 
-    for (i = 0; i < json_object_array_length(events_group_obj); i++) {
+    for (size_t i = 0; i < json_object_array_length(events_group_obj); i++) {
         event_name = json_object_get_string(json_object_array_get_idx(events_group_obj, i));
         if (events_group_append_event(events_group, event_name)) {
             zsys_error("config: json: Failed to add event '%s' to group '%s'", event_name, events_group->name);
@@ -447,11 +446,9 @@ read_file_content(int fd, char *buffer, size_t buffer_size)
 static void
 compute_current_position_from_offset(const char *str, size_t target_offset, size_t *line, size_t *column)
 {
-    size_t current_offset = 0;
-
     *line = 1;
     *column = 1;
-    for (current_offset = 0; current_offset < target_offset; current_offset++)
+    for (size_t current_offset = 0; current_offset < target_offset; current_offset++)
     {
         if (str[current_offset] == '\n') {
             (*line)++;
