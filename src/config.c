@@ -145,18 +145,18 @@ config_validate(struct config *config)
     }
 
     if (storage->type == STORAGE_CSV && !strlen(storage->csv.outdir)) {
-	    zsys_error("config: CSV storage module requires the 'U' flag to be set");
+	    zsys_error("config: CSV storage module requires the 'outdir' parameter to be set");
 	    return -1;
     }
 
     if (storage->type == STORAGE_SOCKET && (!strlen(storage->socket.hostname) || !strlen(storage->socket.port))) {
-	    zsys_error("config: Socket storage module requires the 'U' and 'P' flags to be set");
+	    zsys_error("config: Socket storage module requires the 'host' and 'port' parameters to be set");
 	    return -1;
     }
 
 #ifdef HAVE_MONGODB
     if (storage->type == STORAGE_MONGODB && (!strlen(storage->mongodb.uri) || !strlen(storage->mongodb.database) || !strlen(storage->mongodb.collection))) {
-	    zsys_error("config: MongoDB storage module requires the 'U', 'D' and 'C' flags to be set");
+	    zsys_error("config: MongoDB storage module requires the 'uri', 'database' and 'collection' parameters to be set");
 	    return -1;
     }
 #endif
