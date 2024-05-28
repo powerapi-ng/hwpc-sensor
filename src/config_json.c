@@ -423,6 +423,11 @@ read_file_content(int fd, char *buffer, size_t buffer_size)
         return -1;
     }
 
+    if (!S_ISREG(sb.st_mode)) {
+        zsys_error("config: json: Configuration file is not a regular file");
+        return -1;
+    }
+
     if (sb.st_size == 0) {
         zsys_error("config: json: Configuration file is empty");
         return -1;
