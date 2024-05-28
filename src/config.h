@@ -33,7 +33,8 @@
 #define CONFIG_H
 
 #include <czmq.h>
-#include <bson.h>
+#include <limits.h>
+#include <netdb.h>
 
 #include "events.h"
 #include "storage.h"
@@ -45,8 +46,8 @@ struct config_sensor
 {
     unsigned int verbose;
     unsigned int frequency;
-    const char *cgroup_basepath;
-    const char *name;
+    char cgroup_basepath[PATH_MAX];
+    char name[HOST_NAME_MAX];
 };
 
 /*
@@ -55,10 +56,24 @@ struct config_sensor
 struct config_storage
 {
     enum storage_type type;
-    const char *U_flag;
-    const char *D_flag;
-    const char *C_flag;
-    int P_flag;
+    union {
+        struct {
+            char outdir[PATH_MAX];
+        } csv;
+
+        struct {
+            char hostname[HOST_NAME_MAX];
+            char port[NI_MAXSERV];
+        } socket;
+
+        #ifdef HAVE_MONGODB
+        struct {
+            char uri[PATH_MAX];
+            char database[NAME_MAX];
+            char collection[NAME_MAX];
+        } mongodb;
+        #endif
+    };
 };
 
 /*
@@ -86,21 +101,6 @@ struct config
 struct config *config_create(void);
 
 /*
- * parse_config_file extract the config file path from command line arguments.
- */
-int parse_config_file_path(int argc, char **argv, char ** config_file_path);
-
-/*
- * config_setup_from_cli parse option from a configuration file options and setup the global config.
- */
-int config_setup_from_file(struct config *config, bson_t * doc);
-
-/*
- * config_setup_from_cli parse the command-line options and setup the global config.
- */
-int config_setup_from_cli(int argc, char **argv, struct config *config);
-
-/*
  * config_validate check the validity of the given config.
  */
 int config_validate(struct config *config);
@@ -111,4 +111,3 @@ int config_validate(struct config *config);
 void config_destroy(struct config *config);
 
 #endif /* CONFIG_H */
-

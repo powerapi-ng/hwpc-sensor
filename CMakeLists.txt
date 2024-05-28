@@ -9,12 +9,14 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-add_compile_options(-Werror -Wall -Wextra -Wpedantic -Wformat=2 -Wnull-dereference)
+add_compile_options(-Werror -Wall -Wextra -Wpedantic -Wformat=2 -Wnull-dereference -Wno-gnu-statement-expression)
 add_link_options(-Wl,-z,relro,-z,now -pie)
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og -fsanitize=address,undefined -fno-omit-frame-pointer")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2 -fstack-protector-strong")
 
 set(SENSOR_SOURCES
+    src/config_cli.c
+    src/config_json.c
     src/config.c
     src/util.c
     src/target.c

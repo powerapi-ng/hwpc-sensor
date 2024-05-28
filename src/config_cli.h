@@ -1,6 +1,6 @@
 /*
- *  Copyright (c) 2021, INRIA
- *  Copyright (c) 2021, University of Lille
+ *  Copyright (c) 2024, Inria
+ *  Copyright (c) 2024, University of Lille
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -29,41 +29,14 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STORAGE_SOCKET_H
-#define STORAGE_SOCKET_H
+#ifndef CONFIG_CLI_H
+#define CONFIG_CLI_H
 
-#include "storage.h"
 #include "config.h"
 
 /*
- * MAX_DURATION_CONNECTION_RETRY stores the maximal value of a connection retry. (in seconds)
+ * config_setup_from_cli setup the given global config from the command line arguments.
  */
-#define MAX_DURATION_CONNECTION_RETRY 1800
+int config_setup_from_cli(int argc, char **argv, struct config *config);
 
-/*
- * socket_config stores the required information for the module.
- */
-struct socket_config
-{
-    const char *sensor_name;
-    const char *address;
-    const char *port;
-};
-
-/*
- * socket_context stores the context of the module.
- */
-struct socket_context
-{
-    struct socket_config config;
-    int socket_fd;
-    time_t last_retry_time;
-    time_t retry_backoff_time;
-};
-
-/*
- * storage_socket_create creates and configure a socket storage module.
- */
-struct storage_module *storage_socket_create(struct config *config);
-
-#endif /* STORAGE_SOCKET_H */
+#endif /* CONFIG_CLI_H */

@@ -32,6 +32,7 @@
 #ifndef EVENTS_H
 #define EVENTS_H
 
+#include <limits.h>
 #include <czmq.h>
 #include <perfmon/pfmlib_perf_event.h>
 
@@ -49,7 +50,7 @@ enum events_group_monitoring_type
  */
 struct event_config
 {
-    const char *name;
+    char name[NAME_MAX];
     struct perf_event_attr attr;
 };
 
@@ -58,7 +59,7 @@ struct event_config
  */
 struct events_group
 {
-    const char *name;
+    char name[NAME_MAX];
     enum events_group_monitoring_type type;
     zlistx_t *events; /* struct event_config *event */
 };

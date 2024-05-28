@@ -311,7 +311,7 @@ storage_csv_create(struct config *config)
     if (!module)
         goto error;
 
-    ctx = csv_context_create(config->sensor.name, config->storage.U_flag);
+    ctx = csv_context_create(config->sensor.name, config->storage.csv.outdir);
     if (!ctx)
         goto error;
 

@@ -31,6 +31,8 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <errno.h>
+#include <limits.h>
 
 #include "util.h"
 
@@ -107,4 +109,46 @@ ptrfree(void **ptr)
 {
     free(*ptr);
     *ptr = NULL;
+}
+
+int
+str_to_uint(const char *str, unsigned int *out)
+{
+    unsigned long value;
+    char *str_endp = NULL;
+
+    errno = 0;
+    value = strtoul(str, &str_endp, 0);
+
+    if (errno != 0 || str == str_endp || *str_endp != '\0') {
+        return EINVAL;
+    }
+
+    if (value > UINT_MAX) {
+        return ERANGE;
+    }
+
+    *out = (unsigned int) value;
+    return 0;
+}
+
+int
+str_to_int(const char *str, int *out)
+{
+    long value;
+    char *str_endp = NULL;
+
+    errno = 0;
+    value = strtol(str, &str_endp, 0);
+
+    if (errno != 0 || str == str_endp || *str_endp != '\0') {
+        return EINVAL;
+    }
+
+    if (value > INT_MAX) {
+        return ERANGE;
+    }
+
+    *out = (int) value;
+    return 0;
 }
