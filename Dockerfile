@@ -1,15 +1,16 @@
 # libpfm dependency builder image
-FROM ubuntu:22.04 as libpfm-builder
+FROM ubuntu:24.04 as libpfm-builder
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && \
-    apt install -y build-essential git devscripts debhelper dpatch python3-dev libncurses-dev swig && \
-    update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
+    apt install -y build-essential git devscripts debhelper libncurses-dev && \
     git clone -b smartwatts https://github.com/gfieni/libpfm4.git /root/libpfm4 && \
     cd /root/libpfm4 && \
+    sed -i 's/CONFIG_PFMLIB_NOPYTHON=n/CONFIG_PFMLIB_NOPYTHON=y/' debian/rules && \
+    sed -i '/^Package: python-libpfm4$/,/^$/d' debian/control && \
     fakeroot debian/rules binary
 
 # sensor builder image (build tools + development dependencies):
-FROM ubuntu:22.04 as sensor-builder
+FROM ubuntu:24.04 as sensor-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_TYPE=Debug
 ARG MONGODB_SUPPORT=ON
@@ -27,7 +28,7 @@ RUN cd /usr/src/hwpc-sensor && \
     cmake --build build --parallel $(getconf _NPROCESSORS_ONLN)
 
 # sensor runner image (only runtime depedencies):
-FROM ubuntu:22.04 as sensor-runner
+FROM ubuntu:24.04 as sensor-runner
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_TYPE=Debug
 ARG MONGODB_SUPPORT=ON
@@ -36,7 +37,7 @@ RUN useradd -d /opt/powerapi -m powerapi && \
     apt update && \
     apt install -y libczmq4 libjson-c5 libcap2-bin && \
     echo "${MONGODB_SUPPORT}" |grep -iq "on" && apt install -y libmongoc-1.0-0 || true && \
-    echo "${BUILD_TYPE}" |grep -iq "debug" && apt install -y libasan6 libubsan1 || true && \
+    echo "${BUILD_TYPE}" |grep -iq "debug" && apt install -y libasan8 libubsan1 || true && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=libpfm-builder /root/libpfm4*.deb /tmp/
 RUN dpkg -i /tmp/libpfm4_*.deb && \
