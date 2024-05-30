@@ -37,7 +37,6 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 #include <czmq.h>
-#include <bson.h>
 
 #include "version.h"
 #include "config.h"
