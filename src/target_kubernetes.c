@@ -40,19 +40,14 @@
  * CONTAINER_ID_REGEX_EXPECTED_MATCHES is the number of matches expected from the regex. (num groups + 1)
  */
 #define CONTAINER_ID_REGEX \
-    "perf_event/kubepods/" \
-    "(besteffort/|burstable/|)" \
-    "(pod[a-zA-Z0-9][a-zA-Z0-9.-]+)/" /* Pod ID */ \
-    "([a-f0-9]{64})" /* Container ID */ \
-    "(/[a-zA-Z0-9][a-zA-Z0-9.-]+|)" /* Resource group */
-#define CONTAINER_ID_REGEX_EXPECTED_MATCHES 5
+    "perf_event/kubepods.slice/" \
+    "kubepods-(besteffort|burstable|).slice/" \
+    "kubepods-(besteffort|burstable|)-(pod[a-f0-9][a-f0-9_-]+).slice/" /* Pod ID */ \
+    "cri-containerd-([a-f0-9]{64}).scope" /* Container ID */
 
-/*
- * CONTAINER_NAME_REGEX is the regex used to extract the name of the Docker container from its json configuration file.
- * CONTAINER_NAME_REGEX_EXPECTED_MATCHES is the number of matches expected from the regex. (num groups + 1)
- */
-#define CONTAINER_NAME_REGEX "\"Name\":\"/([a-zA-Z0-9][a-zA-Z0-9_.-]+)\""
-#define CONTAINER_NAME_REGEX_EXPECTED_MATCHES 2
+#define CONTAINER_ID_REGEX_EXPECTED_MATCHES 5
+#define CONTAINER_SHORT_ID_LENGTH 14
+#define POD_ID_LENGTH 16
 
 
 int
@@ -74,59 +69,59 @@ target_kubernetes_validate(const char *cgroup_path)
     return is_kubernetes_target;
 }
 
-static char *
-build_container_config_path(const char *cgroup_path)
+char *
+target_kubernetes_container_id(char *cgroup_path)
 {
-    regex_t re;
+     regex_t re;
     regmatch_t matches[CONTAINER_ID_REGEX_EXPECTED_MATCHES];
-    regoff_t length;
-    const char *id = NULL;
-    char buffer[PATH_MAX] = {0};
-    char *config_path = NULL;
-
+    char *container_id = NULL;
+    char *target_name;
+    target_name = (char *) malloc ((CONTAINER_SHORT_ID_LENGTH + 1) * sizeof (char));
     if (!regcomp(&re, CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE)) {
         if (!regexec(&re, cgroup_path, CONTAINER_ID_REGEX_EXPECTED_MATCHES, matches, 0)) {
-            id = cgroup_path + matches[3].rm_so;
-            length = matches[3].rm_eo - matches[3].rm_so;
-            snprintf(buffer, PATH_MAX, "/var/lib/docker/containers/%.*s/config.v2.json", length, id);
-            config_path = strdup(buffer);
+            container_id = cgroup_path + matches[4].rm_so;
+            strncpy(target_name, container_id, CONTAINER_SHORT_ID_LENGTH);
+            target_name[CONTAINER_SHORT_ID_LENGTH] = '\0';
         }
         regfree(&re);
     }
 
-    return config_path;
-}
-
-char *
-target_kubernetes_resolve_name(struct target *target)
-{
-    char *config_path = NULL;
-    FILE *json_file = NULL;
-    char *json = NULL;
-    size_t json_len;
-    regex_t re;
-    regmatch_t matches[CONTAINER_NAME_REGEX_EXPECTED_MATCHES];
-    char *target_name = NULL;
-
-    config_path = build_container_config_path(target->cgroup_path);
-    if (!config_path)
-        return NULL;
-
-    json_file = fopen(config_path, "r");
-    if (json_file) {
-        if (getline(&json, &json_len, json_file) != -1) {
-            if (!regcomp(&re, CONTAINER_NAME_REGEX, REG_EXTENDED | REG_NEWLINE)) {
-                if (!regexec(&re, json, CONTAINER_NAME_REGEX_EXPECTED_MATCHES, matches, 0))
-                    target_name = strndup(json + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
-
-                regfree(&re);
-            }
-            free(json);
-        }
-        fclose(json_file);
-    }
-
-    free(config_path);
     return target_name;
 }
 
+char *
+target_kubernetes_pod_id(char *cgroup_path)
+{
+    regex_t re;
+    regmatch_t matches[CONTAINER_ID_REGEX_EXPECTED_MATCHES];
+    char *pod_id = NULL;
+    char *target_name;
+    target_name = (char *) malloc ((POD_ID_LENGTH + 1) * sizeof (char));
+    if (!regcomp(&re, CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE)) {
+        if (!regexec(&re, cgroup_path, CONTAINER_ID_REGEX_EXPECTED_MATCHES, matches, 0)) {
+            pod_id = cgroup_path + matches[3].rm_so;
+           strncpy(target_name,&(pod_id[3]),POD_ID_LENGTH - 3);
+           target_name[POD_ID_LENGTH - 3] = '\0';
+        }
+        regfree(&re);
+    }
+    return target_name;
+}
+
+char *
+target_kubernetes_global_id(char *pod_id, char *container_id)
+{
+    char *target_name;
+    char * tmp;
+    tmp = (char *) malloc (((POD_ID_LENGTH - 3) + CONTAINER_SHORT_ID_LENGTH + 1) * sizeof (char));
+    target_name = (char *) malloc (((POD_ID_LENGTH - 3) + CONTAINER_SHORT_ID_LENGTH + 1) * sizeof (char));
+    strncpy(tmp,pod_id,POD_ID_LENGTH - 3);
+    tmp[POD_ID_LENGTH - 4] = '-';
+    tmp[POD_ID_LENGTH - 3] = '\0';
+    strncat(tmp,container_id,CONTAINER_SHORT_ID_LENGTH);
+    tmp[CONTAINER_SHORT_ID_LENGTH + (POD_ID_LENGTH - 3)] = '\0';
+    strncpy(target_name, tmp,CONTAINER_SHORT_ID_LENGTH + (POD_ID_LENGTH - 3));
+    target_name[CONTAINER_SHORT_ID_LENGTH + (POD_ID_LENGTH - 3)] = '\0';
+    free(tmp);
+    return target_name;
+}
