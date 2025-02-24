@@ -44,6 +44,8 @@ group_fd_destroy(FILE **fd_ptr)
     if (!*fd_ptr)
         return;
 
+    fflush(*fd_ptr);
+    fsync(fileno(*fd_ptr));
     fclose(*fd_ptr);
     *fd_ptr = NULL;
 }
