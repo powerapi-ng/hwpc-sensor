@@ -36,6 +36,66 @@
 #include "events.h"
 #include "util.h"
 
+
+static int
+setup_msr_perf_event_attr_type(struct perf_event_attr *attr)
+{
+    const char pmu_type_path[PATH_MAX] = "/sys/devices/msr/type";
+    FILE *f = NULL;
+    char buffer[16] = {0}; /* uint32 expected */
+    unsigned int pmu_type = 0;
+    int ret = -1;
+
+    f = fopen(pmu_type_path, "r");
+    if (f) {
+        if (fgets(buffer, sizeof(buffer), f)) {
+            if (!str_to_uint(buffer, &pmu_type)) {
+                attr->type = pmu_type;
+                ret = 0;
+            }
+        }
+
+        fclose(f);
+    }
+
+    return ret;
+}
+
+static int
+setup_msr_perf_event_attr_config(const char *event_name, struct perf_event_attr *attr)
+{
+    /* events config from: https://github.com/torvalds/linux/blob/master/arch/x86/events/msr.c */
+    const char *msr_events_name[] = {"tsc", "aperf", "mperf", "pperf", "smi", "ptsc", "irperf", "cpu_thermal_margin"};
+    const uint64_t msr_events_config[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
+    const size_t num_msr_events = sizeof(msr_events_name) / sizeof(msr_events_name[0]);
+    char event_path[PATH_MAX] = {0};
+
+    for (size_t i = 0; i < num_msr_events; i++) {
+        if (!strcasecmp(event_name, msr_events_name[i])) {
+            snprintf(event_path, PATH_MAX, "/sys/devices/msr/events/%s", msr_events_name[i]);
+            if (!access(event_path, F_OK)) {
+                attr->config = msr_events_config[i];
+                return 0;
+            }
+        }
+    }
+
+    return -1;
+}
+
+static int
+get_msr_pmu_event_encoding(const char *event_name, struct perf_event_attr *attr)
+{
+    attr->size = sizeof(struct perf_event_attr);
+    attr->disabled = 1;
+    attr->read_format = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING | PERF_FORMAT_GROUP;
+
+    if (setup_msr_perf_event_attr_type(attr)) return -1;
+    if (setup_msr_perf_event_attr_config(event_name, attr)) return -1;
+
+    return 0;
+}
+
 static int
 setup_perf_event_attr(const char *event_name, struct perf_event_attr *attr)
 {
@@ -48,7 +108,10 @@ setup_perf_event_attr(const char *event_name, struct perf_event_attr *attr)
     arg.size = sizeof(pfm_perf_encode_arg_t);
     arg.attr = attr;
     if (pfm_get_os_event_encoding(event_name, PFM_PLM0 | PFM_PLM3, PFM_OS_PERF_EVENT_EXT, &arg) != PFM_SUCCESS) {
-        return -1;
+        /* fallback to MSR PMU event encoding if libpfm fails */
+        if (get_msr_pmu_event_encoding(event_name, attr)) {
+            return -1;
+        }
     }
 
     return 0;
