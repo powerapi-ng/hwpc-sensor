@@ -120,7 +120,7 @@ str_to_uint(const char *str, unsigned int *out)
     errno = 0;
     value = strtoul(str, &str_endp, 0);
 
-    if (errno != 0 || str == str_endp || *str_endp != '\0') {
+    if (errno != 0 || str == str_endp || (*str_endp != '\0' && *str_endp != '\n')) {
         return EINVAL;
     }
 
@@ -141,7 +141,7 @@ str_to_int(const char *str, int *out)
     errno = 0;
     value = strtol(str, &str_endp, 0);
 
-    if (errno != 0 || str == str_endp || *str_endp != '\0') {
+    if (errno != 0 || str == str_endp || (*str_endp != '\0' && *str_endp != '\n')) {
         return EINVAL;
     }
 
