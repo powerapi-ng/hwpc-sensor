@@ -1,21 +1,11 @@
 # Hardware Performance Counters (HwPC) Sensor
-
-HardWare Performance Counter (HWPC) Sensor is a tool that monitor the Intel CPU
-performance counter and the power consumption of CPU.
-
-Hwpc-sensor use the RAPL (Running Average Power Limit) technology to monitor CPU
-power consumption. This technology is only available on Intel Sandy Bridge
-architecture or higher.
-
-The sensor use the perf API of the Linux kernel. It is only available on Linux
-and need to have root access to be used.
-
-The sensor couldn’t be used in a virtual machine, it must access (via Linux
-kernel API) to the real CPU register to read performance counter values.
+This project is a lightweight sensor that monitor the Hardware Performance Counters of the cgroups (i.e. containers, systemd units...) running on a Linux system.
 
 # About
+This open-source project is maintained by the [PowerAPI consortium](https://github.com/powerapi-ng).
+To report bugs, submit feature ideas, or post feedback, please use the [Issues section](https://github.com/powerapi-ng/hwpc-sensor/issues) of this repo.
 
-HwPC sensor is an open-source project developed by the [Spirals research
-group](https://team.inria.fr/spirals) (University of Lille 1 and Inria).
+The documentation is available [on the PowerAPI website](http://powerapi.org).
 
-The documentation is available [here](http://powerapi.org)
+# License
+This project is licensed under the [BSD-3-Clause License](https://opensource.org/licenses/BSD-3-Clause).
