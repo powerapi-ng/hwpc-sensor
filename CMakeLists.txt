@@ -1,18 +1,24 @@
 cmake_minimum_required(VERSION 3.13)
-project(hwpc-sensor LANGUAGES C)
+project(hwpc-sensor LANGUAGES CXX)
 
 option(WITH_MONGODB "Build with support for MongoDB storage module" ON)
 
-set(CMAKE_C_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-add_compile_options(-Werror -Wall -Wextra -Wpedantic -Wformat=2 -Wnull-dereference -Wno-gnu-statement-expression)
-add_link_options(-Wl,-z,relro,-z,now -pie)
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og -fsanitize=address,undefined -fno-omit-frame-pointer")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2 -fstack-protector-strong")
+add_compile_options(-Werror -Wall -Wextra -Wformat=2 -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE)
+add_link_options(-pie -Wl,-z,relro,-z,now -Wl,-z,noexecstack -Wl,-z,defs -Wl,--as-needed)
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # These warnings need to be suppressed temporarily, as the only fix is to rewrite the code in C++
+    add_compile_options(-Wno-deprecated -Wno-c99-designator -Wno-vla-cxx-extension)
+endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Og -fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
 
 set(SENSOR_SOURCES
     src/config_cli.c
@@ -51,5 +57,13 @@ if(DEFINED ENV{GIT_TAG} AND DEFINED ENV{GIT_REV})
 endif()
 
 add_executable(hwpc-sensor "${SENSOR_SOURCES}")
+
+foreach(src ${SENSOR_SOURCES})
+    set_source_files_properties(${src} PROPERTIES LANGUAGE CXX)
+endforeach()
+
+target_compile_features(hwpc-sensor PUBLIC cxx_std_20)
+set_target_properties(hwpc-sensor PROPERTIES CXX_EXTENSIONS OFF LINKER_LANGUAGE CXX)
+
 target_include_directories(hwpc-sensor SYSTEM PRIVATE "${LIBPFM_INCLUDE_DIRS}" "${CZMQ_INCLUDE_DIRS}" "${JSONC_INCLUDE_DIRS}" "${MONGOC_INCLUDE_DIRS}")
 target_link_libraries(hwpc-sensor "${LIBPFM_LIBRARIES}" "${CZMQ_LIBRARIES}" "${JSONC_LIBRARIES}" "${MONGOC_LIBRARIES}")

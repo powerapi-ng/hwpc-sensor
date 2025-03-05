@@ -45,7 +45,7 @@
 static struct socket_context *
 socket_context_create(const char *sensor_name, const char *address, const char *port)
 {
-    struct socket_context *ctx = malloc(sizeof(struct socket_context));
+    struct socket_context *ctx = (struct socket_context *) malloc(sizeof(struct socket_context));
 
     if (!ctx)
         return NULL;
@@ -73,7 +73,7 @@ socket_context_destroy(struct socket_context *ctx)
 static int
 socket_resolve_and_connect(struct socket_context *ctx)
 {
-    struct addrinfo hints = {0};
+    struct addrinfo hints = {};
     struct addrinfo *result = NULL, *rp = NULL;
     int sfd = -1;
     int ret = -1;
@@ -119,7 +119,7 @@ error_no_getaddrinfo:
 static int
 socket_initialize(struct storage_module *module)
 {
-    struct socket_context *ctx = module->context;
+    struct socket_context *ctx = (struct socket_context *) module->context;
 
     if (module->is_initialized)
         return -1;
@@ -177,7 +177,7 @@ socket_try_reconnect(struct socket_context *ctx)
 static int
 socket_store_report(struct storage_module *module, struct payload *payload)
 {
-    struct socket_context *ctx = module->context;
+    struct socket_context *ctx = (struct socket_context *) module->context;
     struct json_object *jobj = NULL;
     struct json_object *jobj_groups = NULL;
     struct payload_group_data *group_data = NULL;
@@ -193,7 +193,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
     uint64_t *event_value = NULL;
     const char *json_report = NULL;
     size_t json_report_length = 0;
-    struct iovec socket_iov[2] = {0};
+    struct iovec socket_iov[2] = {};
     ssize_t nbsend;
     int retry_once = 1;
     int ret = -1;
@@ -234,23 +234,23 @@ socket_store_report(struct storage_module *module, struct payload *payload)
 
     jobj_groups = json_object_new_object();
     json_object_object_add(jobj, "groups", jobj_groups);
-    for (group_data = zhashx_first(payload->groups); group_data; group_data = zhashx_next(payload->groups)) {
+    for (group_data = (struct payload_group_data *) zhashx_first(payload->groups); group_data; group_data = (struct payload_group_data *) zhashx_next(payload->groups)) {
 
         jobj_group = json_object_new_object();
-        group_name = zhashx_cursor(payload->groups);
+        group_name = (const char *) zhashx_cursor(payload->groups);
         json_object_object_add(jobj_groups, group_name, jobj_group);
-        for (pkg_data = zhashx_first(group_data->pkgs); pkg_data; pkg_data = zhashx_next(group_data->pkgs)) {
+        for (pkg_data = (struct payload_pkg_data *) zhashx_first(group_data->pkgs); pkg_data; pkg_data = (struct payload_pkg_data *) zhashx_next(group_data->pkgs)) {
 
             jobj_pkg = json_object_new_object();
-            pkg_id = zhashx_cursor(group_data->pkgs);
+            pkg_id = (const char *) zhashx_cursor(group_data->pkgs);
             json_object_object_add(jobj_group, pkg_id, jobj_pkg);
-            for (cpu_data = zhashx_first(pkg_data->cpus); cpu_data; cpu_data = zhashx_next(pkg_data->cpus)) {
+            for (cpu_data = (struct payload_cpu_data *) zhashx_first(pkg_data->cpus); cpu_data; cpu_data = (struct payload_cpu_data *) zhashx_next(pkg_data->cpus)) {
                 jobj_cpu = json_object_new_object();
-                cpu_id = zhashx_cursor(pkg_data->cpus);
+                cpu_id = (const char *) zhashx_cursor(pkg_data->cpus);
                 json_object_object_add(jobj_pkg, cpu_id, jobj_cpu);
 
-                for (event_value = zhashx_first(cpu_data->events); event_value; event_value = zhashx_next(cpu_data->events)) {
-                    event_name = zhashx_cursor(cpu_data->events);
+                for (event_value = (uint64_t *) zhashx_first(cpu_data->events); event_value; event_value = (uint64_t *) zhashx_next(cpu_data->events)) {
+                    event_name = (const char *) zhashx_cursor(cpu_data->events);
                     json_object_object_add(jobj_cpu, event_name, json_object_new_uint64(*event_value));
                 }
             }
@@ -269,7 +269,7 @@ socket_store_report(struct storage_module *module, struct payload *payload)
      */
     socket_iov[0].iov_base = (void *) json_report;
     socket_iov[0].iov_len = json_report_length;
-    socket_iov[1].iov_base = "\n";
+    socket_iov[1].iov_base = (void *) "\n";
     socket_iov[1].iov_len = 1;
 
     do {
@@ -304,7 +304,7 @@ error_socket_disconnected:
 static int
 socket_deinitialize(struct storage_module *module)
 {
-    struct socket_context *ctx = module->context;
+    struct socket_context *ctx = (struct socket_context *) module->context;
 
     if (!module->is_initialized)
         return -1;
@@ -321,7 +321,7 @@ socket_destroy(struct storage_module *module)
     if (!module)
         return;
 
-    socket_context_destroy(module->context);
+    socket_context_destroy((struct socket_context *) module->context);
 }
 
 struct storage_module *
@@ -330,7 +330,7 @@ storage_socket_create(struct config *config)
     struct storage_module *module = NULL;
     struct socket_context *ctx = NULL;
 
-    module = malloc(sizeof(struct storage_module));
+    module = (struct storage_module *) malloc(sizeof(struct storage_module));
     if (!module)
         goto error;
 

@@ -38,7 +38,7 @@
 struct payload_cpu_data *
 payload_cpu_data_create(void)
 {
-    struct payload_cpu_data *data = malloc(sizeof(struct payload_cpu_data));
+    struct payload_cpu_data *data = (struct payload_cpu_data *) malloc(sizeof(struct payload_cpu_data));
 
     if (!data)
         return NULL;
@@ -64,7 +64,7 @@ payload_cpu_data_destroy(struct payload_cpu_data **data_ptr)
 struct payload_pkg_data *
 payload_pkg_data_create(void)
 {
-    struct payload_pkg_data *data = malloc(sizeof(struct payload_pkg_data));
+    struct payload_pkg_data *data = (struct payload_pkg_data *) malloc(sizeof(struct payload_pkg_data));
 
     if (!data)
         return NULL;
@@ -89,7 +89,7 @@ payload_pkg_data_destroy(struct payload_pkg_data **data_ptr)
 struct payload_group_data *
 payload_group_data_create(void)
 {
-    struct payload_group_data *data = malloc(sizeof(struct payload_group_data));
+    struct payload_group_data *data = (struct payload_group_data *) malloc(sizeof(struct payload_group_data));
 
     if (!data)
         return NULL;
@@ -114,7 +114,7 @@ payload_group_data_destroy(struct payload_group_data **data_ptr)
 struct payload *
 payload_create(uint64_t timestamp, const char *target_name)
 {
-    struct payload *payload = malloc(sizeof(struct payload));
+    struct payload *payload = (struct payload *) malloc(sizeof(struct payload));
 
     if (!payload)
         return NULL;

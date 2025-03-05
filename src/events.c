@@ -99,7 +99,7 @@ get_msr_pmu_event_encoding(const char *event_name, struct perf_event_attr *attr)
 static int
 setup_perf_event_attr(const char *event_name, struct perf_event_attr *attr)
 {
-    pfm_perf_encode_arg_t arg = {0};
+    pfm_perf_encode_arg_t arg = {};
 
     attr->size = sizeof(struct perf_event_attr);
     attr->disabled = 1;
@@ -120,11 +120,11 @@ setup_perf_event_attr(const char *event_name, struct perf_event_attr *attr)
 struct event_config *
 event_config_create(const char *event_name)
 {
-    struct perf_event_attr attr = {0};
+    struct perf_event_attr attr = {};
     struct event_config *config = NULL;
 
     if (!setup_perf_event_attr(event_name, &attr)) {
-        config = malloc(sizeof(struct event_config));
+        config = (struct event_config *) malloc(sizeof(struct event_config));
         if (config) {
             snprintf(config->name, NAME_MAX, "%s", event_name);
             config->attr = attr;
@@ -140,7 +140,7 @@ event_config_dup(struct event_config *config)
     struct event_config *copy = NULL;
 
     if (config) {
-        copy = malloc(sizeof(struct event_config));
+        copy = (struct event_config *) malloc(sizeof(struct event_config));
         if (copy) {
             snprintf(copy->name, NAME_MAX, "%s", config->name);
             copy->attr = config->attr;
@@ -162,7 +162,7 @@ event_config_destroy(struct event_config **config)
 struct events_group *
 events_group_create(const char *name)
 {
-    struct events_group *group = malloc(sizeof(struct events_group));
+    struct events_group *group = (struct events_group *) malloc(sizeof(struct events_group));
 
     if (group) {
         snprintf(group->name, NAME_MAX, "%s", name);
@@ -182,7 +182,7 @@ events_group_dup(struct events_group *group)
     struct events_group *copy = NULL;
 
     if (group) {
-        copy = malloc(sizeof(struct events_group));
+        copy = (struct events_group *) malloc(sizeof(struct events_group));
         if (copy) {
             snprintf(copy->name, NAME_MAX, "%s", group->name);
             copy->type = group->type;

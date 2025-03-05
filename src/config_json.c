@@ -469,7 +469,7 @@ static int
 parse_json_configuration_file_from_fd(int fd, json_object **obj)
 {
     int ret = -1;
-    char buffer[JSON_FILE_BUFFER_SIZE] = {0};
+    char buffer[JSON_FILE_BUFFER_SIZE] = {};
     json_tokener *tok = NULL;
     enum json_tokener_error jerr;
     size_t line, column;

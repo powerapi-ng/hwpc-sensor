@@ -49,7 +49,7 @@
 struct perf_config *
 perf_config_create(struct hwinfo *hwinfo, zhashx_t *events_groups, struct target *target)
 {
-    struct perf_config *config = malloc(sizeof(struct perf_config));
+    struct perf_config *config = (struct perf_config *) malloc(sizeof(struct perf_config));
     
     if (!config)
         return NULL;
@@ -87,7 +87,7 @@ perf_event_fd_destroy(int **fd_ptr)
 static struct perf_group_cpu_context *
 perf_group_cpu_context_create(void)
 {
-    struct perf_group_cpu_context *ctx = malloc(sizeof(struct perf_group_cpu_context));
+    struct perf_group_cpu_context *ctx = (struct perf_group_cpu_context *) malloc(sizeof(struct perf_group_cpu_context));
 
     if (!ctx)
         return NULL;
@@ -113,7 +113,7 @@ perf_group_cpu_context_destroy(struct perf_group_cpu_context **ctx)
 static struct perf_group_pkg_context *
 perf_group_pkg_context_create(void)
 {
-    struct perf_group_pkg_context *ctx = malloc(sizeof(struct perf_group_pkg_context));
+    struct perf_group_pkg_context *ctx = (struct perf_group_pkg_context *) malloc(sizeof(struct perf_group_pkg_context));
 
     if (!ctx)
         return NULL;
@@ -138,7 +138,7 @@ perf_group_pkg_context_destroy(struct perf_group_pkg_context **ctx)
 static struct perf_group_context *
 perf_group_context_create(struct events_group *group)
 {
-    struct perf_group_context *ctx = malloc(sizeof(struct perf_group_context));
+    struct perf_group_context *ctx = (struct perf_group_context *) malloc(sizeof(struct perf_group_context));
 
     if (!ctx)
         return NULL;
@@ -164,7 +164,7 @@ perf_group_context_destroy(struct perf_group_context **ctx)
 static struct perf_context *
 perf_context_create(struct perf_config *config, zsock_t *pipe, const char *target_name)
 {
-    struct perf_context *ctx = malloc(sizeof(struct perf_context));
+    struct perf_context *ctx = (struct perf_context *) malloc(sizeof(struct perf_context));
 
     if (!ctx)
         return NULL;
@@ -217,7 +217,7 @@ perf_events_group_setup_cpu(struct perf_context *ctx, struct perf_group_cpu_cont
         return -1;
     }
 
-    for (event = zlistx_first(group->events); event; event = zlistx_next(group->events)) {
+    for (event = (struct event_config *) zlistx_first(group->events); event; event = (struct event_config *) zlistx_next(group->events)) {
         errno = 0;
         perf_fd = perf_event_open(&event->attr, ctx->cgroup_fd, (int) cpu, group_fd, perf_flags);
         if (perf_fd < 1) {
@@ -258,8 +258,8 @@ perf_events_groups_initialize(struct perf_context *ctx)
         }
     }
 
-    for (events_group = zhashx_first(ctx->config->events_groups); events_group; events_group = zhashx_next(ctx->config->events_groups)) {
-        events_group_name = zhashx_cursor(ctx->config->events_groups);
+    for (events_group = (struct events_group *) zhashx_first(ctx->config->events_groups); events_group; events_group = (struct events_group *) zhashx_next(ctx->config->events_groups)) {
+        events_group_name = (const char *) zhashx_cursor(ctx->config->events_groups);
 
         /* create group context */
         group_ctx = perf_group_context_create(events_group);
@@ -268,8 +268,8 @@ perf_events_groups_initialize(struct perf_context *ctx)
             goto error;
         }
 
-        for (pkg = zhashx_first(ctx->config->hwinfo->pkgs); pkg; pkg = zhashx_next(ctx->config->hwinfo->pkgs)) {
-            pkg_id = zhashx_cursor(ctx->config->hwinfo->pkgs);
+        for (pkg = (struct hwinfo_pkg *) zhashx_first(ctx->config->hwinfo->pkgs); pkg; pkg = (struct hwinfo_pkg *) zhashx_next(ctx->config->hwinfo->pkgs)) {
+            pkg_id = (const char *) zhashx_cursor(ctx->config->hwinfo->pkgs);
 
             /* create package context */
             pkg_ctx = perf_group_pkg_context_create();
@@ -278,7 +278,7 @@ perf_events_groups_initialize(struct perf_context *ctx)
                 goto error;
             }
 
-            for (cpu_id = zlistx_first(pkg->cpus_id); cpu_id; cpu_id = zlistx_next(pkg->cpus_id)) {
+            for (cpu_id = (const char *) zlistx_first(pkg->cpus_id); cpu_id; cpu_id = (const char *) zlistx_next(pkg->cpus_id)) {
                 /* create cpu context */
                 cpu_ctx = perf_group_cpu_context_create();
                 if (!cpu_ctx) {
@@ -328,15 +328,15 @@ perf_events_groups_enable(struct perf_context *ctx)
     const char *cpu_id = NULL;
     const int *group_leader_fd = NULL;
 
-    for (group_ctx = zhashx_first(ctx->groups_ctx); group_ctx; group_ctx = zhashx_next(ctx->groups_ctx)) {
-        group_name = zhashx_cursor(ctx->groups_ctx);
+    for (group_ctx = (struct perf_group_context *) zhashx_first(ctx->groups_ctx); group_ctx; group_ctx = (struct perf_group_context *) zhashx_next(ctx->groups_ctx)) {
+        group_name = (const char *) zhashx_cursor(ctx->groups_ctx);
 
-        for (pkg_ctx = zhashx_first(group_ctx->pkgs_ctx); pkg_ctx; pkg_ctx = zhashx_next(group_ctx->pkgs_ctx)) {
-            pkg_id = zhashx_cursor(group_ctx->pkgs_ctx);
+        for (pkg_ctx = (struct perf_group_pkg_context *) zhashx_first(group_ctx->pkgs_ctx); pkg_ctx; pkg_ctx = (struct perf_group_pkg_context *) zhashx_next(group_ctx->pkgs_ctx)) {
+            pkg_id = (const char *) zhashx_cursor(group_ctx->pkgs_ctx);
 
-            for (cpu_ctx = zhashx_first(pkg_ctx->cpus_ctx); cpu_ctx; cpu_ctx = zhashx_next(pkg_ctx->cpus_ctx)) {
-                cpu_id = zhashx_cursor(pkg_ctx->cpus_ctx);
-                group_leader_fd = zlistx_first(cpu_ctx->perf_fds);
+            for (cpu_ctx = (struct perf_group_cpu_context *) zhashx_first(pkg_ctx->cpus_ctx); cpu_ctx; cpu_ctx = (struct perf_group_cpu_context *) zhashx_next(pkg_ctx->cpus_ctx)) {
+                cpu_id = (const char *) zhashx_cursor(pkg_ctx->cpus_ctx);
+                group_leader_fd = (int *) zlistx_first(cpu_ctx->perf_fds);
                 if (!group_leader_fd) {
                     zsys_error("perf<%s>: no group leader fd for group=%s pkg=%s cpu=%s", ctx->target_name, group_name, pkg_id, cpu_id);
                     continue;
@@ -359,7 +359,7 @@ perf_events_group_read_cpu(struct perf_group_cpu_context *cpu_ctx, struct perf_r
 {
     int *group_leader_fd = NULL;
 
-    group_leader_fd = zlistx_first(cpu_ctx->perf_fds);
+    group_leader_fd = (int *) zlistx_first(cpu_ctx->perf_fds);
     if (!group_leader_fd)
         return -1;
 
@@ -388,11 +388,13 @@ handle_pipe(struct perf_context *ctx)
     zstr_free(&command);
 }
 
+#if 0
 static inline double
 compute_perf_multiplexing_ratio(struct perf_read_format *report)
 {
     return (!report->time_enabled) ? 1.0 : (double) report->time_running / (double) report->time_enabled;
 }
+#endif
 
 static int
 populate_payload(struct perf_context *ctx, struct payload *payload)
@@ -408,12 +410,12 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
     struct payload_cpu_data *cpu_data = NULL;
     size_t perf_read_buffer_size;
     struct perf_read_format *perf_read_buffer = NULL;
-    double perf_multiplexing_ratio;
+    // double perf_multiplexing_ratio;
     const struct event_config *event = NULL;
     int event_i;
 
-    for (group_ctx = zhashx_first(ctx->groups_ctx); group_ctx; group_ctx = zhashx_next(ctx->groups_ctx)) {
-        group_name = zhashx_cursor(ctx->groups_ctx);
+    for (group_ctx = (struct perf_group_context *) zhashx_first(ctx->groups_ctx); group_ctx; group_ctx = (struct perf_group_context *) zhashx_next(ctx->groups_ctx)) {
+        group_name = (const char *) zhashx_cursor(ctx->groups_ctx);
         group_data = payload_group_data_create();
         if (!group_data) {
             zsys_error("perf<%s>: failed to allocate group data for group=%s", ctx->target_name, group_name);
@@ -422,22 +424,22 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
 
         /* shared perf read buffer */
         perf_read_buffer_size = offsetof(struct perf_read_format, values) + sizeof(struct perf_counter_value[zlistx_size(group_ctx->config->events)]);
-        perf_read_buffer = malloc(perf_read_buffer_size);
+        perf_read_buffer = (struct perf_read_format *) malloc(perf_read_buffer_size);
         if (!perf_read_buffer) {
             zsys_error("perf<%s>: failed to allocate perf read buffer for group=%s", ctx->target_name, group_name);
             goto error;
         }
 
-        for (pkg_ctx = zhashx_first(group_ctx->pkgs_ctx); pkg_ctx; pkg_ctx = zhashx_next(group_ctx->pkgs_ctx)) {
-            pkg_id = zhashx_cursor(group_ctx->pkgs_ctx);
+        for (pkg_ctx = (struct perf_group_pkg_context *) zhashx_first(group_ctx->pkgs_ctx); pkg_ctx; pkg_ctx = (struct perf_group_pkg_context *) zhashx_next(group_ctx->pkgs_ctx)) {
+            pkg_id = (const char *) zhashx_cursor(group_ctx->pkgs_ctx);
             pkg_data = payload_pkg_data_create();
             if (!pkg_data) {
                 zsys_error("perf<%s>: failed to allocate pkg data for group=%s pkg=%s", ctx->target_name, group_name, pkg_id);
                 goto error;
             }
 
-            for (cpu_ctx = zhashx_first(pkg_ctx->cpus_ctx); cpu_ctx; cpu_ctx = zhashx_next(pkg_ctx->cpus_ctx)) {
-                cpu_id = zhashx_cursor(pkg_ctx->cpus_ctx);
+            for (cpu_ctx = (struct perf_group_cpu_context *) zhashx_first(pkg_ctx->cpus_ctx); cpu_ctx; cpu_ctx = (struct perf_group_cpu_context *) zhashx_next(pkg_ctx->cpus_ctx)) {
+                cpu_id = (const char *) zhashx_cursor(pkg_ctx->cpus_ctx);
                 cpu_data = payload_cpu_data_create();
                 if (!cpu_data) {
                     zsys_error("perf<%s>: failed to allocate cpu data for group=%s pkg=%s cpu=%s", ctx->target_name, group_name, pkg_id, cpu_id);
@@ -450,16 +452,18 @@ populate_payload(struct perf_context *ctx, struct payload *payload)
                     goto error;
                 }
 
+#if 0
                 /* warn if PMU multiplexing is happening */
                 perf_multiplexing_ratio = compute_perf_multiplexing_ratio(perf_read_buffer);
                 if (perf_multiplexing_ratio < 1.0) {
                     zsys_warning("perf<%s>: perf multiplexing for group=%s pkg=%s cpu=%s ratio=%f", ctx->target_name, group_name, pkg_id, cpu_id, perf_multiplexing_ratio);
                 }
+#endif
 
                 /* store events value */
                 zhashx_insert(cpu_data->events, "time_enabled", &perf_read_buffer->time_enabled);
                 zhashx_insert(cpu_data->events, "time_running", &perf_read_buffer->time_running);
-                for (event = zlistx_first(group_ctx->config->events), event_i = 0; event; event = zlistx_next(group_ctx->config->events), event_i++) {
+                for (event = (struct event_config *) zlistx_first(group_ctx->config->events), event_i = 0; event; event = (struct event_config *) zlistx_next(group_ctx->config->events), event_i++) {
                     zhashx_insert(cpu_data->events, event->name, &perf_read_buffer->values[event_i].value);
                 }
 
@@ -512,7 +516,7 @@ handle_ticker(struct perf_context *ctx)
 void
 perf_monitoring_actor(zsock_t *pipe, void *args)
 {
-    struct perf_config *config = args;
+    struct perf_config *config = (struct perf_config *) args;
     char *target_name = NULL;
     struct perf_context *ctx = NULL;
     zsock_t *which = NULL;
@@ -525,7 +529,7 @@ perf_monitoring_actor(zsock_t *pipe, void *args)
         goto cleanup;
     }
 
-    ctx = perf_context_create(args, pipe, target_name);
+    ctx = perf_context_create((struct perf_config *) args, pipe, target_name);
     if (!ctx) {
         zsys_error("perf<%s>: cannot create perf context", target_name);
         goto cleanup;
@@ -541,7 +545,7 @@ perf_monitoring_actor(zsock_t *pipe, void *args)
     zsys_info("perf<%s>: monitoring actor started", target_name);
 
     while (!ctx->terminated) {
-        which = zpoller_wait(ctx->poller, -1);
+        which = (zsock_t *) zpoller_wait(ctx->poller, -1);
 
         if (zpoller_terminated(ctx->poller))
             break;
@@ -561,7 +565,7 @@ cleanup:
 int
 perf_try_global_counting_event_open(void)
 {
-    struct perf_event_attr pe = {0};
+    struct perf_event_attr pe = {};
     int fd;
 
     /* check support of perf_event by the kernel */

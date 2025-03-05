@@ -41,16 +41,6 @@
 #include "target_docker.h"
 #include "target_kubernetes.h"
 
-const char *target_types_name[] = {
-    [TARGET_TYPE_UNKNOWN] = "unknown",
-    [TARGET_TYPE_ALL] = "all",
-    [TARGET_TYPE_SYSTEM] = "system",
-    [TARGET_TYPE_KERNEL] = "kernel",
-    [TARGET_TYPE_DOCKER] = "docker",
-    [TARGET_TYPE_KUBERNETES] = "k8s",
-    [TARGET_TYPE_LIBVIRT] = "libvirt",
-    [TARGET_TYPE_LXC] = "lxc",
-};
 
 enum target_type
 target_detect_type(const char *cgroup_path)
@@ -105,7 +95,7 @@ target_validate_type(enum target_type type, const char *cgroup_path)
 struct target *
 target_create(enum target_type type, const char *cgroup_basedir, const char *cgroup_path)
 {
-    struct target *target = malloc(sizeof(struct target));
+    struct target *target = (struct target *) malloc(sizeof(struct target));
 
     if (!target)
         return NULL;
@@ -132,10 +122,15 @@ target_resolve_real_name(struct target *target)
             break;
 
         case TARGET_TYPE_ALL:
+            target_real_name = strdup("all");
+            break;
+
         case TARGET_TYPE_KERNEL:
+            target_real_name = strdup("kernel");
+            break;
+
         case TARGET_TYPE_SYSTEM:
-            /* the above types have static name */
-            target_real_name = strdup(target_types_name[target->type]);
+            target_real_name = strdup("system");
             break;
 
         default:

@@ -52,7 +52,7 @@
 static struct hwinfo_pkg *
 hwinfo_pkg_create(void)
 {
-    struct hwinfo_pkg *pkg = malloc(sizeof(struct hwinfo_pkg));
+    struct hwinfo_pkg *pkg = (struct hwinfo_pkg *) malloc(sizeof(struct hwinfo_pkg));
 
     if (!pkg)
         return NULL;
@@ -67,7 +67,7 @@ hwinfo_pkg_create(void)
 static struct hwinfo_pkg *
 hwinfo_pkg_dup(struct hwinfo_pkg *pkg)
 {
-    struct hwinfo_pkg *pkgcpy = malloc(sizeof(struct hwinfo_pkg));
+    struct hwinfo_pkg *pkgcpy = (struct hwinfo_pkg *) malloc(sizeof(struct hwinfo_pkg));
 
     if (!pkgcpy)
         return NULL;
@@ -92,7 +92,7 @@ static int
 get_cpu_online_status(const char *cpu_dir)
 {
     int status = 1;
-    char path[PATH_MAX] = {0};
+    char path[PATH_MAX] = {};
     FILE *f = NULL;
     char buffer[2]; /* boolean expected */
 
@@ -118,7 +118,7 @@ static char *
 get_package_id(const char *cpu_dir)
 {
     FILE *f = NULL;
-    char path[PATH_MAX] = {0};
+    char path[PATH_MAX] = {};
     char buffer[24]; /* log10(ULLONG_MAX) */
     char *id = NULL;
 
@@ -138,7 +138,7 @@ get_package_id(const char *cpu_dir)
 static char *
 parse_cpu_id_from_name(const char *str)
 {
-    regex_t re = {0};
+    regex_t re = {};
     regmatch_t matches[CPU_ID_REGEX_EXPECTED_MATCHES];
     char *id = NULL;
 
@@ -191,7 +191,7 @@ do_packages_detection(struct hwinfo *hwinfo)
             }
 
             /* get cpu pkg or create it if never encountered */
-            pkg = zhashx_lookup(hwinfo->pkgs, pkg_id);
+            pkg = (struct hwinfo_pkg *) zhashx_lookup(hwinfo->pkgs, pkg_id);
             if (!pkg) {
                 pkg = hwinfo_pkg_create();
                 if (!pkg) {
@@ -201,7 +201,7 @@ do_packages_detection(struct hwinfo *hwinfo)
 
                 zhashx_insert(hwinfo->pkgs, pkg_id, pkg);
                 hwinfo_pkg_destroy(&pkg);
-                pkg = zhashx_lookup(hwinfo->pkgs, pkg_id); /* get the copy the pkg done by zhashx_insert */
+                pkg = (struct hwinfo_pkg *) zhashx_lookup(hwinfo->pkgs, pkg_id); /* get the copy the pkg done by zhashx_insert */
             }
 
             zlistx_add_end(pkg->cpus_id, cpu_id);
@@ -235,7 +235,7 @@ hwinfo_detect(struct hwinfo *hwinfo)
 struct hwinfo *
 hwinfo_create(void)
 {
-    struct hwinfo *hw = malloc(sizeof(struct hwinfo));
+    struct hwinfo *hw = (struct hwinfo *) malloc(sizeof(struct hwinfo));
 
     if (!hw)
         return NULL;
@@ -250,7 +250,7 @@ hwinfo_create(void)
 struct hwinfo *
 hwinfo_dup(struct hwinfo *hwinfo)
 {
-    struct hwinfo *hwinfocpy = malloc(sizeof(struct hwinfo));
+    struct hwinfo *hwinfocpy = (struct hwinfo *) malloc(sizeof(struct hwinfo));
 
     if (!hwinfocpy)
         return NULL;

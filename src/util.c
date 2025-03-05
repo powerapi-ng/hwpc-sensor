@@ -39,7 +39,7 @@
 int *
 intdup(int val)
 {
-    int *res = malloc(sizeof(int));
+    int *res = (int *) malloc(sizeof(int));
 
     if (!res)
         return NULL;
@@ -73,7 +73,7 @@ intptrcmp(const int *a, const int *b)
 uint64_t *
 uint64dup(uint64_t val)
 {
-    uint64_t *res = malloc(sizeof(uint64_t));
+    uint64_t *res = (uint64_t *) malloc(sizeof(uint64_t));
 
     if (!res)
         return NULL;

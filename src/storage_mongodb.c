@@ -38,7 +38,7 @@
 static struct mongodb_context *
 mongodb_context_create(const char *sensor_name, const char *uri, const char *database, const char *collection)
 {
-    struct mongodb_context *ctx = malloc(sizeof(struct mongodb_context));
+    struct mongodb_context *ctx = (struct mongodb_context *) malloc(sizeof(struct mongodb_context));
 
     if (!ctx)
         return NULL;
@@ -66,7 +66,7 @@ mongodb_context_destroy(struct mongodb_context *ctx)
 static int
 mongodb_initialize(struct storage_module *module)
 {
-    struct mongodb_context *ctx = module->context;
+    struct mongodb_context *ctx = (struct mongodb_context *) module->context;
     bson_error_t error;
 
     if (module->is_initialized)
@@ -101,7 +101,7 @@ error:
 static int
 mongodb_ping(struct storage_module *module)
 {
-    struct mongodb_context *ctx = module->context;
+    struct mongodb_context *ctx = (struct mongodb_context *) module->context;
     int ret = 0;
     bson_t *ping_cmd = BCON_NEW("ping", BCON_INT32(1));
     bson_error_t error;
@@ -118,7 +118,7 @@ mongodb_ping(struct storage_module *module)
 static int
 mongodb_store_report(struct storage_module *module, struct payload *payload)
 {
-    struct mongodb_context *ctx = module->context;
+    struct mongodb_context *ctx = (struct mongodb_context *) module->context;
     bson_t document = BSON_INITIALIZER;
     bson_t doc_groups;
     struct payload_group_data *group_data = NULL;
@@ -163,20 +163,20 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
     BSON_APPEND_UTF8(&document, "target", payload->target_name);
 
     BSON_APPEND_DOCUMENT_BEGIN(&document, "groups", &doc_groups);
-    for (group_data = zhashx_first(payload->groups); group_data; group_data = zhashx_next(payload->groups)) {
-        group_name = zhashx_cursor(payload->groups);
+    for (group_data = (struct payload_group_data *) zhashx_first(payload->groups); group_data; group_data = (struct payload_group_data *) zhashx_next(payload->groups)) {
+        group_name = (const char *) zhashx_cursor(payload->groups);
         BSON_APPEND_DOCUMENT_BEGIN(&doc_groups, group_name, &doc_group);
 
-        for (pkg_data = zhashx_first(group_data->pkgs); pkg_data; pkg_data = zhashx_next(group_data->pkgs)) {
-            pkg_id = zhashx_cursor(group_data->pkgs);
+        for (pkg_data = (struct payload_pkg_data *) zhashx_first(group_data->pkgs); pkg_data; pkg_data = (struct payload_pkg_data *) zhashx_next(group_data->pkgs)) {
+            pkg_id = (const char * ) zhashx_cursor(group_data->pkgs);
             BSON_APPEND_DOCUMENT_BEGIN(&doc_group, pkg_id, &doc_pkg);
 
-            for (cpu_data = zhashx_first(pkg_data->cpus); cpu_data; cpu_data = zhashx_next(pkg_data->cpus)) {
-                cpu_id = zhashx_cursor(pkg_data->cpus);
+            for (cpu_data = (struct payload_cpu_data *) zhashx_first(pkg_data->cpus); cpu_data; cpu_data = (struct payload_cpu_data *) zhashx_next(pkg_data->cpus)) {
+                cpu_id = (const char *) zhashx_cursor(pkg_data->cpus);
                 BSON_APPEND_DOCUMENT_BEGIN(&doc_pkg, cpu_id, &doc_cpu);
 
-                for (event_value = zhashx_first(cpu_data->events); event_value; event_value = zhashx_next(cpu_data->events)) {
-                    event_name = zhashx_cursor(cpu_data->events);
+                for (event_value = (uint64_t *) zhashx_first(cpu_data->events); event_value; event_value = (uint64_t *) zhashx_next(cpu_data->events)) {
+                    event_name = (const char *) zhashx_cursor(cpu_data->events);
                     BSON_APPEND_DOUBLE(&doc_cpu, event_name, *event_value);
                 }
 
@@ -203,7 +203,7 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
 static int
 mongodb_deinitialize(struct storage_module *module __attribute__ ((unused)))
 {
-    struct mongodb_context *ctx = module->context;
+    struct mongodb_context *ctx = (struct mongodb_context *) module->context;
 
     if (!module->is_initialized)
         return -1;
@@ -222,7 +222,7 @@ mongodb_destroy(struct storage_module *module)
     if (!module)
         return;
 
-    mongodb_context_destroy(module->context);
+    mongodb_context_destroy((struct mongodb_context *) module->context);
 }
 
 struct storage_module *
@@ -231,7 +231,7 @@ storage_mongodb_create(struct config *config)
     struct storage_module *module = NULL;
     struct mongodb_context *ctx = NULL;
 
-    module = malloc(sizeof(struct storage_module));
+    module = (struct storage_module *) malloc(sizeof(struct storage_module));
     if (!module)
         goto error;
 

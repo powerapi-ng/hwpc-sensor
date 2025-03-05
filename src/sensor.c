@@ -95,9 +95,9 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     }
 
     /* stop monitoring dead container(s) */
-    for (perf_monitor = zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = zhashx_next(container_monitoring_actors)) {
-        cgroup_path = zhashx_cursor(container_monitoring_actors);
-        target = zhashx_lookup(running_targets, cgroup_path);
+    for (perf_monitor = (zactor_t *) zhashx_first(container_monitoring_actors); perf_monitor; perf_monitor = (zactor_t *) zhashx_next(container_monitoring_actors)) {
+        cgroup_path = (const char *) zhashx_cursor(container_monitoring_actors);
+        target = (struct target *) zhashx_lookup(running_targets, cgroup_path);
         if (!target) {
             zhashx_freefn(running_targets, cgroup_path, (zhashx_free_fn *) target_destroy);
             zhashx_delete(container_monitoring_actors, cgroup_path);
@@ -105,8 +105,8 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     }
 
     /* start monitoring new container(s) */
-    for (target = zhashx_first(running_targets); target; target = zhashx_next(running_targets)) {
-        cgroup_path = zhashx_cursor(running_targets);
+    for (target = (struct target *) zhashx_first(running_targets); target; target = (struct target *) zhashx_next(running_targets)) {
+        cgroup_path = (const char *) zhashx_cursor(running_targets);
         if (!zhashx_lookup(container_monitoring_actors, cgroup_path)) {
             monitor_config = perf_config_create(hwinfo, container_events_groups, target);
             perf_monitor = zactor_new(perf_monitoring_actor, monitor_config);
@@ -130,7 +130,7 @@ main(int argc, char **argv)
     struct pmu_info *pmu = NULL;
     struct hwinfo *hwinfo = NULL;
     struct storage_module *storage = NULL;
-    struct report_config reporting_conf = {0};
+    struct report_config reporting_conf = {};
     zactor_t *reporting = NULL;
     zhashx_t *cgroups_running = NULL; /* char *cgroup_name -> char *cgroup_absolute_path */
     zhashx_t *container_monitoring_actors = NULL; /* char *actor_name -> zactor_t *actor */
@@ -181,7 +181,7 @@ main(int argc, char **argv)
         zsys_error("pmu: cannot detect system PMU topology");
         goto cleanup;
     }
-    for (pmu = zlistx_first(sys_pmu_topology->pmus); pmu; pmu = zlistx_next(sys_pmu_topology->pmus)) {
+    for (pmu = (struct pmu_info *) zlistx_first(sys_pmu_topology->pmus); pmu; pmu = (struct pmu_info *) zlistx_next(sys_pmu_topology->pmus)) {
         zsys_info("pmu: found %s '%s' having %d events, %d counters (%d general, %d fixed)",
                 pmu->info.name,
                 pmu->info.desc,
