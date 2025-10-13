@@ -29,13 +29,13 @@ jobs:
         sudo apt-get install -y libczmq-dev libpfm4-dev libjson-c-dev libmongoc-dev
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@39edc492dbe16b1465b0cafca41432d857bdb31a # v3.29.1
+      uses: github/codeql-action/init@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
       with:
         languages: ${{ matrix.language }}
         queries: security-and-quality
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@39edc492dbe16b1465b0cafca41432d857bdb31a # v3.29.1
+      uses: github/codeql-action/autobuild@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@39edc492dbe16b1465b0cafca41432d857bdb31a # v3.29.1
+      uses: github/codeql-action/analyze@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
