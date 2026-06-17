@@ -1,5 +1,5 @@
 # sensor builder image (build tools + development dependencies):
-FROM ubuntu:24.04 as sensor-builder
+FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS sensor-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_TYPE=Debug
 ARG MONGODB_SUPPORT=ON
@@ -14,7 +14,7 @@ RUN cd /usr/src/hwpc-sensor && \
     cmake --build build --parallel $(getconf _NPROCESSORS_ONLN)
 
 # sensor runner image (only runtime depedencies):
-FROM ubuntu:24.04 as sensor-runner
+FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS sensor-runner
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_TYPE=Debug
 ARG MONGODB_SUPPORT=ON
