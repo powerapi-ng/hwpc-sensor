@@ -130,6 +130,8 @@ static int
 setup_storage_null_parameters(struct config *config __attribute__((unused)), json_object *storage_obj)
 {
     json_object_object_foreach(storage_obj, key, value) {
+        (void) value;
+
         if (!strcasecmp(key, "type")) {
             continue;
         }

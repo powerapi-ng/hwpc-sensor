@@ -32,7 +32,7 @@
 #ifndef STORAGE_MONGODB_H
 #define STORAGE_MONGODB_H
 
-#include <mongoc.h>
+#include <mongoc/mongoc.h>
 
 #include "storage.h"
 #include "config.h"

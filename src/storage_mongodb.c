@@ -29,7 +29,7 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <mongoc.h>
+#include <mongoc/mongoc.h>
 
 #include "report.h"
 #include "storage_mongodb.h"
