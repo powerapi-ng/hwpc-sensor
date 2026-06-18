@@ -22,7 +22,7 @@ ARG FILE_CAPABILITY=CAP_SYS_ADMIN
 RUN useradd -d /opt/powerapi -m powerapi && \
     apt update && \
     apt install -y libczmq4 libpfm4 libjson-c5 libcap2-bin && \
-    echo "${MONGODB_SUPPORT}" |grep -iq "on" && apt install -y libmongoc-1.0-0 || true && \
+    echo "${MONGODB_SUPPORT}" |grep -iq "on" && apt install -y libmongoc2-2 || true && \
     echo "${BUILD_TYPE}" |grep -iq "debug" && apt install -y libasan8 libubsan1 || true && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=sensor-builder /usr/src/hwpc-sensor/build/hwpc-sensor /usr/bin/hwpc-sensor
