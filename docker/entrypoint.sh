@@ -1,12 +1,10 @@
 #!/bin/bash
 
-# Check if the capabilities associated to the executable are available from the current Bounding set.
-# The Bounding set is used because the Permitted/Inheritable/Effective sets are cleared when we switch to an unprivileged user in the image.
-#
-REQUIRED_CAP=$(/sbin/getcap /usr/bin/hwpc-sensor |sed -e 's/.*\(cap_.*\)[+=].*$/\1/')
-REQUIRED_CAP_AVAILABLE=$([ -n "${REQUIRED_CAP}" ] && /sbin/capsh --print |grep "Bounding set =" |grep -iqv "${REQUIRED_CAP}" ; echo $?)
-if [ "${REQUIRED_CAP_AVAILABLE}" -eq 0 ]; then
-    echo >&2 "ERROR: This program requires the '${REQUIRED_CAP^^}' capability to work."
+# Check that the required capability is present in the current bounding set.
+# The bounding set is preserved across the switch to the unprivileged user, whereas the effective/permitted/inheritable sets are not.
+if ! /sbin/capsh --has-b=cap_perfmon >/dev/null 2>&1 && ! /sbin/capsh --has-b=cap_sys_admin >/dev/null 2>&1; then
+    echo >&2 "ERROR: Missing required capability: CAP_PERFMON (or CAP_SYS_ADMIN on older kernels)."
+    echo >&2 "Hint: Docker/Podman: --cap-add=PERFMON; Kubernetes: securityContext.capabilities.add."
     exit 1
 fi
 
