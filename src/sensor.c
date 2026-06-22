@@ -39,6 +39,7 @@
 #include <czmq.h>
 
 #include "version.h"
+#include "rlimits.h"
 #include "config.h"
 #include "config_cli.h"
 #include "pmu.h"
@@ -162,6 +163,10 @@ main(int argc, char **argv)
 	    goto cleanup;
     }
     zsys_info("uname: %s %s %s %s", kernel_info.sysname, kernel_info.release, kernel_info.version, kernel_info.machine);
+
+    if (rlimits_initialize()) {
+        goto cleanup;
+    }
 
 #ifdef HAVE_CAPABILITY_HARDENING
     /* setup required process capabilities */

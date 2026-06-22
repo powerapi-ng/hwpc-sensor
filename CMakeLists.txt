@@ -39,6 +39,7 @@ set(SENSOR_SOURCES
     src/storage_null.c
     src/storage_csv.c
     src/storage_socket.c
+    src/rlimits.c
     src/sensor.c
 )
 
