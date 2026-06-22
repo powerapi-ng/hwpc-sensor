@@ -2,6 +2,7 @@
 FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS sensor-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_TYPE=Debug
+ARG CAPABILITIES_HARDENING=ON
 ARG MONGODB_SUPPORT=ON
 RUN apt update && \
     apt install -y build-essential git clang-tidy cmake pkg-config libczmq-dev libpfm4-dev libjson-c-dev libsystemd-dev uuid-dev && \
@@ -10,7 +11,11 @@ COPY . /usr/src/hwpc-sensor
 RUN cd /usr/src/hwpc-sensor && \
     GIT_TAG=$(git describe --tags --dirty 2>/dev/null || echo "unknown") \
     GIT_REV=$(git rev-parse HEAD 2>/dev/null || echo "unknown") \
-    cmake -B build -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_C_CLANG_TIDY="clang-tidy" -DWITH_MONGODB="${MONGODB_SUPPORT}" && \
+    cmake -B build \
+    -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+    -DCMAKE_C_CLANG_TIDY="clang-tidy" \
+    -DWITH_CAPABILITY_HARDENING="${CAPABILITIES_HARDENING}" \
+    -DWITH_MONGODB="${MONGODB_SUPPORT}" && \
     cmake --build build --parallel $(getconf _NPROCESSORS_ONLN)
 
 # sensor runner image (only runtime depedencies):
@@ -18,7 +23,6 @@ FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e57
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_TYPE=Debug
 ARG MONGODB_SUPPORT=ON
-ARG FILE_CAPABILITY=CAP_SYS_ADMIN
 RUN useradd -d /opt/powerapi -m powerapi && \
     apt update && \
     apt install -y libczmq4 libpfm4 libjson-c5 libcap2-bin && \
@@ -26,8 +30,7 @@ RUN useradd -d /opt/powerapi -m powerapi && \
     echo "${BUILD_TYPE}" |grep -iq "debug" && apt install -y libasan8 libubsan1 || true && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=sensor-builder /usr/src/hwpc-sensor/build/hwpc-sensor /usr/bin/hwpc-sensor
-RUN setcap "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor && \
-    setcap -v "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor
+RUN setcap "cap_perfmon=p" /usr/bin/hwpc-sensor
 COPY docker/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["--help"]
