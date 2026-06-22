@@ -52,6 +52,10 @@
 #include "storage_csv.h"
 #include "storage_socket.h"
 
+#ifdef HAVE_CAPABILITY_HARDENING
+#include "capabilities.h"
+#endif
+
 #ifdef HAVE_MONGODB
 #include "storage_mongodb.h"
 #endif
@@ -158,6 +162,14 @@ main(int argc, char **argv)
 	    goto cleanup;
     }
     zsys_info("uname: %s %s %s %s", kernel_info.sysname, kernel_info.release, kernel_info.version, kernel_info.machine);
+
+#ifdef HAVE_CAPABILITY_HARDENING
+    /* setup required process capabilities */
+    if (capabilities_initialize()) {
+        zsys_error("capabilities: Failed to initialize process capabilities. Ensure CAP_PERFMON is present in the permitted capability set.");
+        goto cleanup;
+    }
+#endif
 
     /* check if perf_event is working */
     if (perf_try_global_counting_event_open()) {

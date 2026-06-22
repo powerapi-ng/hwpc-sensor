@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 project(hwpc-sensor LANGUAGES CXX)
 
+option(WITH_CAPABILITY_HARDENING "Build with Linux capability hardening (retain only the required process capabilities)" ON)
 option(WITH_MONGODB "Build with support for MongoDB storage module" ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -46,6 +47,11 @@ find_package(PkgConfig)
 pkg_check_modules(CZMQ REQUIRED libczmq)
 pkg_check_modules(JSONC REQUIRED json-c)
 
+if(WITH_CAPABILITY_HARDENING)
+    list(APPEND SENSOR_SOURCES src/capabilities.c)
+    add_compile_definitions(HAVE_CAPABILITY_HARDENING)
+endif()
+
 if(WITH_MONGODB)
     find_package(mongoc NAMES mongoc mongoc-1.0 REQUIRED)
     list(APPEND SENSOR_SOURCES src/storage_mongodb.c)
@@ -53,7 +59,7 @@ if(WITH_MONGODB)
     if(mongoc_VERSION VERSION_GREATER_EQUAL "2.0.0")
         set(MONGOC_LIBRARIES mongoc::shared)
     else()
-	set(MONGOC_LIBRARIES mongo::mongoc_shared)
+        set(MONGOC_LIBRARIES mongo::mongoc_shared)
     endif()
 endif()
 
