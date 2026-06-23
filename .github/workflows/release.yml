@@ -49,6 +49,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            BUILDKIT_CONTEXT_KEEP_GIT_DIR=1
             BUILD_TYPE=Release
 
   github-release:
