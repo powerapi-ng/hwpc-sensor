@@ -47,11 +47,31 @@ struct perf_config
 };
 
 /*
+ * perf_counter_value stores the counter value.
+ */
+struct perf_counter_value {
+    uint64_t value;
+};
+
+/*
+ * perf_cpu_report stores the events counter value.
+ */
+struct perf_read_format {
+    uint64_t nr;
+    uint64_t time_enabled; /* PERF_FORMAT_TOTAL_TIME_ENABLED flag */
+    uint64_t time_running; /* PERF_FORMAT_TOTAL_TIME_RUNNING flag */
+    struct perf_counter_value values[];
+};
+
+/*
  * perf_group_cpu_context stores the context of an events group for a specific cpu.
  */
 struct perf_group_cpu_context
 {
     zlistx_t *perf_fds; /* int *fd */
+    size_t sample_size;
+    struct perf_read_format *baseline_sample;
+    struct perf_read_format *scratch_sample;
 };
 
 /*
@@ -88,23 +108,6 @@ struct perf_context
 };
 
 /*
- * perf_counter_value stores the counter value.
- */
-struct perf_counter_value {
-    uint64_t value;
-};
-
-/*
- * perf_cpu_report stores the events counter value.
- */
-struct perf_read_format {
-    uint64_t nr;
-    uint64_t time_enabled; /* PERF_FORMAT_TOTAL_TIME_ENABLED flag */
-    uint64_t time_running; /* PERF_FORMAT_TOTAL_TIME_RUNNING flag */
-    struct perf_counter_value values[];
-};
-
-/*
  * perf_config_create allocate and configure a perf configuration structure.
  */
 struct perf_config *perf_config_create(struct hwinfo *hwinfo, zhashx_t *events_groups, struct target *target);
@@ -126,4 +129,3 @@ void perf_monitoring_actor(zsock_t *pipe, void *args);
 int perf_try_global_counting_event_open(void);
 
 #endif /* PERF_H */
-
