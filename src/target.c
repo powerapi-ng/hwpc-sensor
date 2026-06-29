@@ -156,34 +156,46 @@ target_destroy(struct target *target)
 }
 
 int
-target_discover_running(const char *base_path, enum target_type type_mask, zhashx_t *targets)
+target_discover_running(const char *base_path, zhashx_t *targets)
 {
     const char *path[] = { base_path, NULL };
     FTS *file_system = NULL;
     FTSENT *node = NULL;
-    enum target_type type;
+    enum target_type type = TARGET_TYPE_UNKNOWN;
     struct target *target = NULL;
 
-    file_system = fts_open((char * const *)path, FTS_LOGICAL | FTS_NOCHDIR, NULL);
+    file_system = fts_open((char * const *) path, FTS_PHYSICAL | FTS_NOCHDIR | FTS_NOSTAT, NULL);
     if (!file_system)
         return -1;
 
     for (node = fts_read(file_system); node; node = fts_read(file_system)) {
         /*
-         * Filtering the directories having 2 hard links leading to them to only get leaves directories.
-         * The cgroup subsystems does not support hard links, so this will always work.
+         * Mark a directory's parent when a child directory is seen in pre-order.
+         * Then, when the directory is seen in post-order, it is a leaf if no
+         * child directory marked it.
          */
-        if (node->fts_info == FTS_D && node->fts_statp->st_nlink == 2) {
-            type = target_detect_type(node->fts_path);
-            if ((type & type_mask) && target_validate_type(type, node->fts_path)) {
-                target = target_create(type, base_path, node->fts_path);
-                if (target)
-                    zhashx_insert(targets, node->fts_path, target);
-            }
+        if (node->fts_info == FTS_D) {
+            if (node->fts_parent)
+                node->fts_parent->fts_number = 1;
+
+            continue;
         }
+
+        if (node->fts_info != FTS_DP)
+            continue;
+
+        /* Do not report the traversal root itself as a target */
+        if (node->fts_level == FTS_ROOTLEVEL)
+            continue;
+
+        /* A child directory was seen, so this directory is not a leaf */
+        if (node->fts_number != 0)
+            continue;
+
+        target = target_create(type, base_path, node->fts_path);
+        zhashx_insert(targets, node->fts_path, target);
     }
 
     fts_close(file_system);
     return 0;
 }
-

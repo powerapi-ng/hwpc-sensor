@@ -94,7 +94,7 @@ sync_cgroups_running_monitored(struct hwinfo *hwinfo, zhashx_t *container_events
     running_targets = zhashx_new();
 
     /* get running (and identifiable) container(s) */
-    if (target_discover_running(cgroup_basepath, TARGET_TYPE_EVERYTHING, running_targets)) {
+    if (target_discover_running(cgroup_basepath, running_targets)) {
         zsys_error("sensor: error when retrieving the running targets.");
         goto out;
     }
