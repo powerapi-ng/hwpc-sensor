@@ -40,9 +40,15 @@
 #include "util.h"
 
 
+enum {
+    OPT_CGROUP_DISCOVERY_INTERVAL = 256,
+};
+
 const char short_opts[] = "x:vf:p:n:s:c:e:or:U:D:C:P:";
 static struct option long_opts[] = {
     {"config-file", required_argument, 0, 'x'},
+    {"perf-sampling-interval", required_argument, 0, 'f'},
+    {"cgroup-discovery-interval", required_argument, 0, OPT_CGROUP_DISCOVERY_INTERVAL},
     {NULL, 0, NULL, 0}
 };
 
@@ -94,16 +100,30 @@ setup_sensor_name(struct config *config, const char *sensor_name)
 }
 
 static int
-setup_frequency(struct config *config, const char *value_str)
+setup_perf_sampling_interval(struct config *config, const char *value_str)
 {
-    unsigned int frequency;
+    unsigned int perf_sampling_interval;
 
-    if (str_to_uint(value_str, &frequency)) {
-        zsys_error("config: cli: Frequency value is invalid");
+    if (str_to_uint(value_str, &perf_sampling_interval)) {
+        zsys_error("config: cli: Perf sampling interval value is invalid");
         return -1;
     }
 
-    config->sensor.frequency = frequency;
+    config->sensor.perf_sampling_interval_ms = perf_sampling_interval;
+    return 0;
+}
+
+static int
+setup_cgroup_discovery_interval(struct config *config, const char *value_str)
+{
+    unsigned int cgroup_discovery_interval;
+
+    if (str_to_uint(value_str, &cgroup_discovery_interval)) {
+        zsys_error("config: cli: Cgroup discovery interval value is invalid");
+        return -1;
+    }
+
+    config->sensor.cgroup_discovery_interval_ms = cgroup_discovery_interval;
     return 0;
 }
 
@@ -320,7 +340,13 @@ config_setup_from_cli(int argc, char **argv, struct config *config)
             break;
 
             case 'f':
-            if (setup_frequency(config, optarg)) {
+            if (setup_perf_sampling_interval(config, optarg)) {
+                return -1;
+            }
+            break;
+
+            case OPT_CGROUP_DISCOVERY_INTERVAL:
+            if (setup_cgroup_discovery_interval(config, optarg)) {
                 return -1;
             }
             break;
