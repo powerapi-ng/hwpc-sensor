@@ -53,7 +53,8 @@ config_create(void)
 
     /* sensor default config */
     config->sensor.verbose = 0;
-    config->sensor.frequency = 1000;
+    config->sensor.perf_sampling_interval_ms = 1000;
+    config->sensor.cgroup_discovery_interval_ms = 5000;
     snprintf(config->sensor.cgroup_basepath, PATH_MAX, "%s", "/sys/fs/cgroup");
     gethostname(config->sensor.name, HOST_NAME_MAX);
 

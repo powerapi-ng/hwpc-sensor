@@ -88,18 +88,32 @@ setup_sensor_name(struct config *config, json_object *sensor_name_obj)
 }
 
 static int
-setup_frequency(struct config *config, json_object *frequency_obj)
+setup_perf_sampling_interval(struct config *config, json_object *frequency_obj)
 {
-    int frequency;
+    int perf_sampling_interval = -1;
 
-    errno = 0;
-    frequency = json_object_get_int(frequency_obj);
-    if (errno != 0 || frequency < 0) {
-        zsys_error("config: json: Frequency value is invalid (positive integer expected)");
+    perf_sampling_interval = json_object_get_int(frequency_obj);
+    if (errno != 0 || perf_sampling_interval <= 0) {
+        zsys_error("config: json: Perf sampling interval value is invalid (positive integer expected)");
         return -1;
     }
 
-    config->sensor.frequency = (unsigned int) frequency;
+    config->sensor.perf_sampling_interval_ms = (unsigned int) perf_sampling_interval;
+    return 0;
+}
+
+static int
+setup_cgroup_discovery_interval(struct config *config, json_object *frequency_obj)
+{
+    int cgroup_discovery_interval = -1;
+
+    cgroup_discovery_interval = json_object_get_int(frequency_obj);
+    if (errno != 0 || cgroup_discovery_interval <= 0) {
+        zsys_error("config: json: Cgroup discovery interval value is invalid (positive integer expected)");
+        return -1;
+    }
+
+    config->sensor.cgroup_discovery_interval_ms = (unsigned int) cgroup_discovery_interval;
     return 0;
 }
 
@@ -385,8 +399,13 @@ process_json_fields(struct config *config, json_object *root)
                 return -1;
             }
         }
-        else if (!strcasecmp(key, "frequency")) {
-            if (setup_frequency(config, value)) {
+        else if (!strcasecmp(key, "frequency") || !strcasecmp(key, "perf-sampling-interval")) {
+            if (setup_perf_sampling_interval(config, value)) {
+                return -1;
+            }
+        }
+        else if (!strcasecmp(key, "cgroup-discovery-interval")) {
+            if (setup_cgroup_discovery_interval(config, value)) {
                 return -1;
             }
         }
