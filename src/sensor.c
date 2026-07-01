@@ -47,6 +47,7 @@
 #include "hwinfo.h"
 #include "perf.h"
 #include "report.h"
+#include "ticker.h"
 #include "target.h"
 #include "storage.h"
 #include "storage_null.h"
@@ -139,7 +140,8 @@ main(int argc, char **argv)
     zactor_t *reporting = NULL;
     zhashx_t *cgroups_running = NULL; /* char *cgroup_name -> char *cgroup_absolute_path */
     zhashx_t *container_monitoring_actors = NULL; /* char *actor_name -> zactor_t *actor */
-    zsock_t *ticker = NULL;
+    struct ticker_config *ticker_conf = NULL;
+    zactor_t *ticker = NULL;
     struct target *system_target = NULL;
     struct perf_config *system_monitor_config = NULL;
     zactor_t *system_perf_monitor = NULL;
@@ -258,8 +260,9 @@ main(int argc, char **argv)
     };
     reporting = zactor_new(reporting_actor, &reporting_conf);
 
-    /* create ticker publisher socket */
-    ticker = zsock_new_pub("inproc://ticker");
+    /* start ticker actor */
+    ticker_conf = ticker_config_create(config->sensor.perf_sampling_interval_ms);
+    ticker = zactor_new(ticker_actor, ticker_conf);
 
     /* start system monitoring actor only when needed */
     if (zhashx_size(config->events.system)) {
@@ -277,10 +280,7 @@ main(int argc, char **argv)
             sync_cgroups_running_monitored(hwinfo, config->events.containers, config->sensor.cgroup_basepath, container_monitoring_actors);
         }
 
-        /* send clock tick to monitoring actors */
-        zsock_send(ticker, "s8", "CLOCK_TICK", zclock_time());
-
-        zclock_sleep((int)config->sensor.frequency);
+        zclock_sleep((int)config->sensor.cgroup_discovery_interval_ms);
     }
 
     /* clean storage module ressources */
@@ -289,12 +289,12 @@ main(int argc, char **argv)
     ret = 0;
 
 cleanup:
+    zactor_destroy(&ticker);
     zhashx_destroy(&cgroups_running);
     zhashx_destroy(&container_monitoring_actors);
     zactor_destroy(&system_perf_monitor);
     zactor_destroy(&reporting);
     storage_module_destroy(storage);
-    zsock_destroy(&ticker);
     config_destroy(config);
     pmu_topology_destroy(sys_pmu_topology);
     pmu_deinitialize();
