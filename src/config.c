@@ -53,7 +53,8 @@ config_create(void)
 
     /* sensor default config */
     config->sensor.verbose = 0;
-    config->sensor.frequency = 1000;
+    config->sensor.perf_sampling_interval_ms = 1000;
+    config->sensor.cgroup_discovery_interval_ms = 5000;
     snprintf(config->sensor.cgroup_basepath, PATH_MAX, "%s", "/sys/fs/cgroup");
     gethostname(config->sensor.name, HOST_NAME_MAX);
 
@@ -132,6 +133,16 @@ config_validate(struct config *config)
     }
 
     if (check_cgroup_basepath(sensor->cgroup_basepath)) {
+        return -1;
+    }
+
+    if (sensor->perf_sampling_interval_ms == 0) {
+        zsys_error("config: Perf sampling interval must be greater than 0");
+        return -1;
+    }
+
+    if (sensor->cgroup_discovery_interval_ms == 0) {
+        zsys_error("config: Cgroup discovery interval must be greater than 0");
         return -1;
     }
 

@@ -307,11 +307,12 @@ socket_deinitialize(struct storage_module *module)
     struct socket_context *ctx = (struct socket_context *) module->context;
 
     if (!module->is_initialized)
-        return -1;
+        return 0;
 
     if (ctx->socket_fd != -1)
         close(ctx->socket_fd);
 
+    module->is_initialized = false;
     return 0;
 }
 
