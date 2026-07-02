@@ -201,12 +201,12 @@ mongodb_store_report(struct storage_module *module, struct payload *payload)
 }
 
 static int
-mongodb_deinitialize(struct storage_module *module __attribute__ ((unused)))
+mongodb_deinitialize(struct storage_module *module)
 {
     struct mongodb_context *ctx = (struct mongodb_context *) module->context;
 
     if (!module->is_initialized)
-        return -1;
+        return 0;
 
     mongoc_collection_destroy(ctx->collection);
     mongoc_client_destroy(ctx->client);

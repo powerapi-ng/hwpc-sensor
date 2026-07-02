@@ -283,9 +283,6 @@ main(int argc, char **argv)
         zclock_sleep((int)config->sensor.cgroup_discovery_interval_ms);
     }
 
-    /* clean storage module ressources */
-    storage_module_deinitialize(storage);
-
     ret = 0;
 
 cleanup:
