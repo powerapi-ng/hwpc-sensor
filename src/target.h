@@ -34,20 +34,14 @@
 
 #include <czmq.h>
 
+
 /*
  * target_type stores the supported target types.
  */
 enum target_type
 {
-    TARGET_TYPE_UNKNOWN = 1,
-    TARGET_TYPE_ALL = 2,
-    TARGET_TYPE_SYSTEM = 4,
-    TARGET_TYPE_KERNEL = 8,
-    TARGET_TYPE_DOCKER = 16,
-    TARGET_TYPE_KUBERNETES = 32,
-    TARGET_TYPE_LIBVIRT = 64,
-    TARGET_TYPE_LXC = 128,
-    TARGET_TYPE_EVERYTHING = 255
+    TARGET_TYPE_GLOBAL = 1,
+    TARGET_TYPE_CGROUP = 2,
 };
 
 /*
@@ -59,16 +53,6 @@ struct target
     const char *cgroup_basedir;
     char *cgroup_path;
 };
-
-/*
- * target_detect_type returns the target type of the given cgroup path.
- */
-enum target_type target_detect_type(const char *cgroup_path);
-
-/*
- * target_validate_type validate the target type of the given cgroup path.
- */
-int target_validate_type(enum target_type type, const char *cgroup_path);
 
 /*
  * target_create allocate the resources and configure the target.
@@ -91,4 +75,3 @@ void target_destroy(struct target *target);
 int target_discover_running(const char *base_path, zhashx_t *targets);
 
 #endif /* TARGET_H */
-

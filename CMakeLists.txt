@@ -27,8 +27,6 @@ set(SENSOR_SOURCES
     src/config.c
     src/util.c
     src/target.c
-    src/target_docker.c
-    src/target_kubernetes.c
     src/pmu.c
     src/events.c
     src/hwinfo.c

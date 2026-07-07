@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2018, INRIA
+ *  Copyright (c) 2018, Inria
  *  Copyright (c) 2018, University of Lille
  *  All rights reserved.
  *
@@ -38,59 +38,7 @@
 #include <sys/stat.h>
 
 #include "target.h"
-#include "target_docker.h"
-#include "target_kubernetes.h"
 
-
-enum target_type
-target_detect_type(const char *cgroup_path)
-{
-    /* All running processes/threads (not a cgroup) */
-    if (!cgroup_path)
-        return TARGET_TYPE_ALL;
-
-    /* System (running processes/threads in system cgroup) */
-    if (strstr(cgroup_path, "perf_event/system"))
-        return TARGET_TYPE_SYSTEM;
-
-    /* Kernel (running processes/threads in kernel cgroup) */
-    if (strstr(cgroup_path, "perf_event/kernel"))
-        return TARGET_TYPE_KERNEL;
-
-    /* Docker (running containers) */
-    if (strstr(cgroup_path, "perf_event/docker"))
-        return TARGET_TYPE_DOCKER;
-
-    /* Kubernetes (running containers) */
-    if (strstr(cgroup_path, "perf_event/kubepods"))
-        return TARGET_TYPE_KUBERNETES;
-
-    /* LibVirt (running virtual machine) */
-    if (strstr(cgroup_path, "perf_event/machine.slice"))
-        return TARGET_TYPE_LIBVIRT;
-
-    /* LXC (running containers) */
-    if (strstr(cgroup_path, "perf_event/lxc"))
-	return TARGET_TYPE_LXC;
-
-    return TARGET_TYPE_UNKNOWN;
-}
-
-int
-target_validate_type(enum target_type type, const char *cgroup_path)
-{
-    switch (type) {
-        case TARGET_TYPE_DOCKER:
-            return target_docker_validate(cgroup_path);
-
-        case TARGET_TYPE_KUBERNETES:
-            return target_kubernetes_validate(cgroup_path);
-
-        default:
-            /* other types does not need a validation */
-            return true;
-    }
-}
 
 struct target *
 target_create(enum target_type type, const char *cgroup_basedir, const char *cgroup_path)
@@ -113,24 +61,8 @@ target_resolve_real_name(struct target *target)
     char *target_real_name = NULL;
 
     switch (target->type) {
-        case TARGET_TYPE_DOCKER:
-            target_real_name = target_docker_resolve_name(target);
-            break;
-
-        case TARGET_TYPE_KUBERNETES:
-            target_real_name = target_kubernetes_resolve_name(target);
-            break;
-
-        case TARGET_TYPE_ALL:
+        case TARGET_TYPE_GLOBAL:
             target_real_name = strdup("all");
-            break;
-
-        case TARGET_TYPE_KERNEL:
-            target_real_name = strdup("kernel");
-            break;
-
-        case TARGET_TYPE_SYSTEM:
-            target_real_name = strdup("system");
             break;
 
         default:
@@ -161,7 +93,6 @@ target_discover_running(const char *base_path, zhashx_t *targets)
     const char *path[] = { base_path, NULL };
     FTS *file_system = NULL;
     FTSENT *node = NULL;
-    enum target_type type = TARGET_TYPE_UNKNOWN;
     struct target *target = NULL;
 
     file_system = fts_open((char * const *) path, FTS_PHYSICAL | FTS_NOCHDIR | FTS_NOSTAT, NULL);
@@ -192,7 +123,7 @@ target_discover_running(const char *base_path, zhashx_t *targets)
         if (node->fts_number != 0)
             continue;
 
-        target = target_create(type, base_path, node->fts_path);
+        target = target_create(TARGET_TYPE_CGROUP, base_path, node->fts_path);
         zhashx_insert(targets, node->fts_path, target);
     }
 
