@@ -73,7 +73,7 @@ foreach(src ${SENSOR_SOURCES})
     set_source_files_properties(${src} PROPERTIES LANGUAGE CXX)
 endforeach()
 
-target_compile_features(hwpc-sensor PUBLIC cxx_std_20)
+target_compile_features(hwpc-sensor PUBLIC cxx_std_23)
 set_target_properties(hwpc-sensor PROPERTIES CXX_EXTENSIONS OFF LINKER_LANGUAGE CXX)
 
 target_include_directories(hwpc-sensor SYSTEM PRIVATE "${LIBPFM_INCLUDE_DIRS}" "${CZMQ_INCLUDE_DIRS}" "${JSONC_INCLUDE_DIRS}" "${MONGOC_INCLUDE_DIRS}")
